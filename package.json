@@ -9,12 +9,13 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.58.0",
+    "lucide-react": "^0.263.1",
     "next": "14.0.0",
+    "papaparse": "^5.4.1",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "recharts": "^2.8.0",
-    "lucide-react": "^0.263.1",
-    "papaparse": "^5.4.1"
+    "recharts": "^2.8.0"
   },
   "devDependencies": {
     "eslint": "^8.0.0",

@@ -1,6 +1,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
+import { useTrading } from '../context/TradingContext';
 import { 
   LayoutDashboard, 
   BookOpen, 
@@ -9,7 +10,9 @@ import {
   Target, 
   TrendingUp,
   Menu,
-  X
+  X,
+  LogOut,
+  User
 } from 'lucide-react';
 import { useState } from 'react';
 
@@ -24,7 +27,14 @@ const navItems = [
 
 export default function Layout({ children }) {
   const router = useRouter();
+  const { user, signOut } = useTrading();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  const handleSignOut = async () => {
+    if (window.confirm('Are you sure you want to sign out?')) {
+      await signOut();
+    }
+  };
 
   return (
     <div className="min-h-screen bg-trading-bg flex">
@@ -77,7 +87,20 @@ export default function Layout({ children }) {
           </nav>
 
           {/* Footer */}
-          <div className="p-4 border-t border-trading-gray">
+          <div className="p-4 border-t border-trading-gray space-y-3">
+            <div className="flex items-center gap-2 px-2">
+              <User className="h-4 w-4 text-trading-pink" />
+              <span className="text-xs text-trading-text truncate">
+                {user?.email}
+              </span>
+            </div>
+            <button
+              onClick={handleSignOut}
+              className="w-full flex items-center gap-2 px-2 py-2 text-xs text-trading-text-muted hover:text-trading-red transition-colors"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </button>
             <p className="text-xs text-trading-text-muted text-center">
               Trading Portal v1.0
             </p>
