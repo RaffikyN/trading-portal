@@ -1,49 +1,17 @@
-import React from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
-import { 
-  LayoutDashboard, 
-  BookOpen, 
-  Wallet, 
-  ArrowDownLeft, 
-  Target, 
-  TrendingUp,
-  Menu,
-  X
-} from 'lucide-react';
-import { useState } from 'react';
-
-const navItems = [
-  { name: 'Dashboard', href: '/', icon: LayoutDashboard },
-  { name: 'Trading Journal', href: '/journal', icon: BookOpen },
-  { name: 'Account Tracker', href: '/accounts', icon: Wallet },
-  { name: 'Withdrawals', href: '/withdrawals', icon: ArrowDownLeft },
-  { name: 'Financial Planner', href: '/planner', icon: Target },
-  { name: 'Analysis', href: '/analysis', icon: TrendingUp },
-];
-
 export default function Layout({ children }) {
   const router = useRouter();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-trading-bg">
-      {/* Mobile menu button */}
-      <div className="lg:hidden fixed top-4 left-4 z-50">
-        <button
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-          className="bg-trading-card p-2 rounded-lg text-trading-text hover:bg-trading-gray transition-colors"
-        >
-          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
-        </button>
-      </div>
-
+    <div className="flex min-h-screen bg-trading-bg">
       {/* Sidebar */}
-      <div className={`
-        fixed inset-y-0 left-0 z-40 w-64 bg-trading-card transform transition-transform duration-300 ease-in-out
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
-        lg:translate-x-0 lg:static lg:inset-0
-      `}>
+      <aside
+        className={`
+          fixed inset-y-0 left-0 z-40 w-64 bg-trading-card transform transition-transform duration-300 ease-in-out
+          ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+          lg:translate-x-0 lg:static lg:inset-0
+        `}
+      >
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="flex items-center justify-center h-16 bg-trading-pink/10 border-b border-trading-pink/20">
@@ -55,7 +23,7 @@ export default function Layout({ children }) {
             {navItems.map((item) => {
               const Icon = item.icon;
               const isActive = router.pathname === item.href;
-              
+
               return (
                 <Link
                   key={item.name}
@@ -83,13 +51,21 @@ export default function Layout({ children }) {
             </p>
           </div>
         </div>
-      </div>
+      </aside>
 
       {/* Main content */}
-      <div className="lg:ml-64">
-        <div className="min-h-screen">
-          {children}
-        </div>
+      <main className="flex-1 lg:ml-64 p-6">
+        {children}
+      </main>
+
+      {/* Mobile menu button */}
+      <div className="lg:hidden fixed top-4 left-4 z-50">
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="bg-trading-card p-2 rounded-lg text-trading-text hover:bg-trading-gray transition-colors"
+        >
+          {sidebarOpen ? <X size={24} /> : <Menu size={24} />}
+        </button>
       </div>
 
       {/* Mobile overlay */}
