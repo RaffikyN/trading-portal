@@ -1,17 +1,67 @@
-import React, { createContext, useContext, useReducer } from 'react';
+import React, { createContext, useContext, useReducer, useEffect } from 'react';
 
 const TradingContext = createContext();
 
-const initialState = {
-  trades: [],
-  accounts: {},
-  withdrawals: [],
-  monthlyGoals: {},
-  loading: false,
-  error: null,
+// Load initial state from localStorage
+const loadInitialState = () => {
+  if (typeof window === 'undefined') {
+    // Server-side rendering - return default state
+    return {
+      trades: [],
+      accounts: {},
+      withdrawals: [],
+      monthlyGoals: {},
+      loading: false,
+      error: null,
+    };
+  }
+
+  try {
+    const saved = localStorage.getItem('tradingPortalData');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return {
+        ...parsed,
+        loading: false,
+        error: null,
+      };
+    }
+  } catch (error) {
+    console.error('Failed to load data from localStorage:', error);
+  }
+
+  return {
+    trades: [],
+    accounts: {},
+    withdrawals: [],
+    monthlyGoals: {},
+    loading: false,
+    error: null,
+  };
+};
+
+const initialState = loadInitialState();
+
+// Save state to localStorage (excluding loading and error)
+const saveToLocalStorage = (state) => {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    const dataToSave = {
+      trades: state.trades,
+      accounts: state.accounts,
+      withdrawals: state.withdrawals,
+      monthlyGoals: state.monthlyGoals,
+    };
+    localStorage.setItem('tradingPortalData', JSON.stringify(dataToSave));
+  } catch (error) {
+    console.error('Failed to save data to localStorage:', error);
+  }
 };
 
 function tradingReducer(state, action) {
+  let newState;
+  
   switch (action.type) {
     case 'SET_LOADING':
       return { ...state, loading: action.payload };
@@ -40,13 +90,14 @@ function tradingReducer(state, action) {
           updatedAccounts[trade.account].startingBalance + updatedAccounts[trade.account].totalPL;
       });
       
-      return { 
+      newState = { 
         ...state, 
         trades: updatedTrades, 
         accounts: updatedAccounts, 
         loading: false,
         error: null 
       };
+      break;
     
     case 'ADD_WITHDRAWAL':
       const withdrawal = action.payload;
@@ -56,31 +107,72 @@ function tradingReducer(state, action) {
         updatedAccountsWithdrawal[withdrawal.account].currentBalance -= withdrawal.amount;
       }
       
-      return {
+      newState = {
         ...state,
         withdrawals: [...state.withdrawals, withdrawal],
         accounts: updatedAccountsWithdrawal
       };
+      break;
     
     case 'SET_MONTHLY_GOAL':
-      return {
+      newState = {
         ...state,
         monthlyGoals: {
           ...state.monthlyGoals,
           [action.payload.month]: action.payload.amount
         }
       };
+      break;
     
     case 'CLEAR_DATA':
-      return initialState;
+      newState = {
+        trades: [],
+        accounts: {},
+        withdrawals: [],
+        monthlyGoals: {},
+        loading: false,
+        error: null,
+      };
+      break;
     
     default:
       return state;
   }
+
+  // Save to localStorage after state changes (except for loading/error states)
+  if (action.type !== 'SET_LOADING' && action.type !== 'SET_ERROR') {
+    saveToLocalStorage(newState);
+  }
+  
+  return newState;
 }
 
 export function TradingProvider({ children }) {
   const [state, dispatch] = useReducer(tradingReducer, initialState);
+
+  // Load data on mount (client-side only)
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const loadedState = loadInitialState();
+      if (loadedState.trades.length > 0 || Object.keys(loadedState.accounts).length > 0) {
+        // If we have data in localStorage that's different from initial state, update it
+        if (JSON.stringify(loadedState) !== JSON.stringify(state)) {
+          // Dispatch each piece of data to rebuild state properly
+          if (loadedState.trades.length > 0) {
+            dispatch({ type: 'IMPORT_TRADES', payload: loadedState.trades });
+          }
+          if (loadedState.withdrawals.length > 0) {
+            loadedState.withdrawals.forEach(withdrawal => {
+              dispatch({ type: 'ADD_WITHDRAWAL', payload: withdrawal });
+            });
+          }
+          Object.entries(loadedState.monthlyGoals).forEach(([month, amount]) => {
+            dispatch({ type: 'SET_MONTHLY_GOAL', payload: { month, amount } });
+          });
+        }
+      }
+    }
+  }, []);
 
   const importTrades = (csvData) => {
     dispatch({ type: 'SET_LOADING', payload: true });
@@ -124,6 +216,10 @@ export function TradingProvider({ children }) {
 
   const clearData = () => {
     dispatch({ type: 'CLEAR_DATA' });
+    // Also clear localStorage
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('tradingPortalData');
+    }
   };
 
   // Computed values
