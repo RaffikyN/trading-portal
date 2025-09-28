@@ -27,12 +27,20 @@ const navItems = [
 
 export default function Layout({ children }) {
   const router = useRouter();
-  const { user, signOut } = useTrading();
+  const { user, signOut, loading, error, offlineMode } = useTrading();
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const handleSignOut = async () => {
     if (window.confirm('Are you sure you want to sign out?')) {
       await signOut();
+    }
+  };
+
+  const handleEmergencyReset = () => {
+    if (window.confirm('This will force reload the page and clear any stuck states. Continue?')) {
+      // Clear any stuck state and reload
+      localStorage.clear();
+      window.location.reload();
     }
   };
 
@@ -96,10 +104,17 @@ export default function Layout({ children }) {
             </div>
             <button
               onClick={handleSignOut}
-              className="w-full flex items-center gap-2 px-2 py-2 text-xs text-trading-text-muted hover:text-trading-red transition-colors"
+              disabled={loading}
+              className="w-full flex items-center gap-2 px-2 py-2 text-xs text-trading-text-muted hover:text-trading-red transition-colors disabled:opacity-50"
             >
               <LogOut className="h-4 w-4" />
-              Sign Out
+              {loading ? 'Signing out...' : 'Sign Out'}
+            </button>
+            <button
+              onClick={handleEmergencyReset}
+              className="w-full text-xs text-trading-text-muted hover:text-trading-text underline"
+            >
+              Emergency Reset
             </button>
             <p className="text-xs text-trading-text-muted text-center">
               Trading Portal v1.0
@@ -110,6 +125,50 @@ export default function Layout({ children }) {
 
       {/* Main content */}
       <div className="flex-1 flex flex-col min-w-0">
+        {/* Offline mode banner */}
+        {offlineMode && (
+          <div className="bg-trading-pink/20 border-b border-trading-pink/30 px-4 py-2">
+            <p className="text-trading-pink text-sm text-center">
+              📱 Offline Mode - Using local storage (data saved locally)
+            </p>
+          </div>
+        )}
+        
+        {/* Error banner */}
+        {error && (
+          <div className="bg-trading-red/20 border-b border-trading-red/30 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <p className="text-trading-red text-sm">
+                Error: {error}
+              </p>
+              <button 
+                onClick={handleEmergencyReset}
+                className="text-trading-red hover:text-trading-red/70 text-xs underline"
+              >
+                Reset App
+              </button>
+            </div>
+          </div>
+        )}
+        
+        {/* Loading overlay */}
+        {loading && (
+          <div className="bg-trading-bg/80 border-b border-trading-pink/30 px-4 py-3">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-trading-pink"></div>
+                <p className="text-trading-pink text-sm">Loading...</p>
+              </div>
+              <button 
+                onClick={handleEmergencyReset}
+                className="text-trading-text-muted hover:text-trading-text text-xs underline"
+              >
+                Taking too long? Reset
+              </button>
+            </div>
+          </div>
+        )}
+        
         <main className="flex-1">
           {children}
         </main>
