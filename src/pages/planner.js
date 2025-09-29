@@ -36,12 +36,23 @@ function CashCalculator({ calculateCashFlow, currentCash, setCurrentCash }) {
   const [showCalculator, setShowCalculator] = useState(false);
   const [tempCash, setTempCash] = useState(currentCash.toString());
 
+  // Update tempCash when currentCash changes
+  React.useEffect(() => {
+    setTempCash(currentCash.toString());
+  }, [currentCash]);
+
   const dailyCash = calculateCashFlow('day');
   const weeklyCash = calculateCashFlow('week');  
   const monthlyCash = calculateCashFlow('month');
 
   const handleUpdateCash = () => {
-    setCurrentCash(tempCash);
+    const amount = parseFloat(tempCash) || 0;
+    setCurrentCash(amount);
+    setShowCalculator(false);
+  };
+
+  const handleCancel = () => {
+    setTempCash(currentCash.toString());
     setShowCalculator(false);
   };
 
@@ -68,16 +79,25 @@ function CashCalculator({ calculateCashFlow, currentCash, setCurrentCash }) {
           <div className="flex gap-2">
             <input
               type="number"
+              step="0.01"
               value={tempCash}
               onChange={(e) => setTempCash(e.target.value)}
               className="flex-1 bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none"
               placeholder="0.00"
             />
             <button
+              type="button"
               onClick={handleUpdateCash}
               className="bg-trading-pink hover:bg-trading-pink-dark text-white px-4 py-2 rounded-lg transition-colors"
             >
               Update
+            </button>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="bg-trading-card hover:bg-trading-gray text-trading-text px-4 py-2 rounded-lg transition-colors"
+            >
+              Cancel
             </button>
           </div>
         </div>
