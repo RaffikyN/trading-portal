@@ -1,4 +1,40 @@
-import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
+const setCurrentCash = (amount) => {
+    dispatch({ type: 'SET_CURRENT_CASH', payload: parseFloat(amount) });
+  };
+
+  const addExpense = (expense) => {
+    const newExpense = {
+      ...expense,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString()
+    };
+    dispatch({ type: 'ADD_EXPENSE', payload: newExpense });
+  };
+
+  const updateExpense = (expense) => {
+    dispatch({ type: 'UPDATE_EXPENSE', payload: expense });
+  };
+
+  const deleteExpense = (expenseId) => {
+    dispatch({ type: 'DELETE_EXPENSE', payload: expenseId });
+  };
+
+  const addIncome = (income) => {
+    const newIncome = {
+      ...income,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString()
+    };
+    dispatch({ type: 'ADD_INCOME', payload: newIncome });
+  };
+
+  const updateIncome = (income) => {
+    dispatch({ type: 'UPDATE_INCOME', payload: income });
+  };
+
+  const deleteIncome = (incomeId) => {
+    dispatch({ type: 'DELETE_INCOME', payload: incomeId });
+  };import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 
 const TradingContext = createContext();
@@ -25,6 +61,9 @@ const saveToLocalStorage = (state) => {
       accounts: state.accounts,
       withdrawals: state.withdrawals,
       monthlyGoals: state.monthlyGoals,
+      expenses: state.expenses,
+      incomes: state.incomes,
+      currentCash: state.currentCash,
     };
     localStorage.setItem('tradingPortalData', JSON.stringify(dataToSave));
   } catch (error) {
@@ -37,6 +76,10 @@ const initialState = {
   accounts: {},
   withdrawals: [],
   monthlyGoals: {},
+  // Personal Finance Data
+  expenses: [],
+  incomes: [],
+  currentCash: 0,
   loading: false,
   error: null,
 };
@@ -181,12 +224,68 @@ function tradingReducer(state, action) {
       };
       break;
     
+    case 'ADD_EXPENSE':
+      newState = {
+        ...state,
+        expenses: [...state.expenses, action.payload]
+      };
+      break;
+    
+    case 'UPDATE_EXPENSE':
+      newState = {
+        ...state,
+        expenses: state.expenses.map(exp => 
+          exp.id === action.payload.id ? action.payload : exp
+        )
+      };
+      break;
+    
+    case 'DELETE_EXPENSE':
+      newState = {
+        ...state,
+        expenses: state.expenses.filter(exp => exp.id !== action.payload)
+      };
+      break;
+    
+    case 'ADD_INCOME':
+      newState = {
+        ...state,
+        incomes: [...state.incomes, action.payload]
+      };
+      break;
+    
+    case 'UPDATE_INCOME':
+      newState = {
+        ...state,
+        incomes: state.incomes.map(inc => 
+          inc.id === action.payload.id ? action.payload : inc
+        )
+      };
+      break;
+    
+    case 'DELETE_INCOME':
+      newState = {
+        ...state,
+        incomes: state.incomes.filter(inc => inc.id !== action.payload)
+      };
+      break;
+    
+    case 'SET_CURRENT_CASH':
+      newState = {
+        ...state,
+        currentCash: action.payload
+      };
+      break;
+    
     case 'CLEAR_DATA':
       newState = {
         trades: [],
         accounts: {},
         withdrawals: [],
         monthlyGoals: {},
+        expenses: [],
+        incomes: [],
+        currentCash: 0,
         loading: false,
         error: null,
       };
@@ -571,6 +670,67 @@ export function TradingProvider({ children }) {
   const winRate = state.trades.length > 0 ? (winningTrades.length / state.trades.length) * 100 : 0;
   const activeAccounts = Object.values(state.accounts).filter(acc => acc.status === 'Active').length;
 
+  // Personal Finance Calculations
+  const calculateCashFlow = (period = 'month') => {
+    const now = new Date();
+    let startDate, endDate;
+
+    switch (period) {
+      case 'day':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+        break;
+      case 'week':
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+        endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+      default:
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+        break;
+    }
+
+    // Calculate expenses in period
+    const periodExpenses = state.expenses
+      .filter(exp => {
+        const expenseDate = new Date(exp.dueDate);
+        return expenseDate >= startDate && expenseDate <= endDate;
+      })
+      .reduce((sum, exp) => sum + exp.amount, 0);
+
+    // Calculate income in period
+    const periodIncome = state.incomes
+      .filter(inc => {
+        const incomeDate = new Date(inc.date);
+        return incomeDate >= startDate && incomeDate <= endDate;
+      })
+      .reduce((sum, inc) => sum + inc.amount, 0);
+
+    // Add trading withdrawals as income
+    const tradingIncome = state.withdrawals
+      .filter(w => {
+        const withdrawalDate = new Date(w.date);
+        return withdrawalDate >= startDate && withdrawalDate <= endDate;
+      })
+      .reduce((sum, w) => sum + w.amount, 0);
+
+    return {
+      income: periodIncome + tradingIncome,
+      expenses: periodExpenses,
+      netCashFlow: (periodIncome + tradingIncome) - periodExpenses,
+      projectedCash: state.currentCash + (periodIncome + tradingIncome) - periodExpenses
+    };
+  };
+
+  const calculateNetWorth = () => {
+    const cashOnHand = state.currentCash;
+    const tradingAccountValue = Object.values(state.accounts).reduce((sum, acc) => sum + acc.currentBalance, 0);
+    const pendingWithdrawals = state.withdrawals.reduce((sum, w) => sum + w.amount, 0);
+    
+    return cashOnHand + tradingAccountValue - pendingWithdrawals;
+  };
+
   // Add connection status checker
   const checkConnection = async () => {
     if (!supabase || offlineMode) return false;
@@ -616,6 +776,16 @@ export function TradingProvider({ children }) {
     setMonthlyGoal,
     clearData,
     signOut,
+    // Personal Finance Functions
+    setCurrentCash,
+    addExpense,
+    updateExpense,
+    deleteExpense,
+    addIncome,
+    updateIncome,
+    deleteIncome,
+    calculateCashFlow,
+    calculateNetWorth,
     // Computed values
     totalPL,
     totalWithdrawals,
