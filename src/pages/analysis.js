@@ -3,6 +3,7 @@ import Layout from '../components/Layout';
 import { useTrading } from '../context/TradingContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
 import { TrendingUp, TrendingDown, Target, Clock, Calendar, DollarSign } from 'lucide-react';
+import Link from 'next/link';
 
 function StatCard({ title, value, subtitle, icon: Icon, trend }) {
   return (
@@ -336,9 +337,12 @@ export default function Analysis() {
                 Import your trading data to see detailed analysis and insights.
               </p>
               <div className="flex justify-center">
-                <button className="bg-trading-pink hover:bg-trading-pink-dark text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                <Link 
+                  href="/journal"
+                  className="bg-trading-pink hover:bg-trading-pink-dark text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                >
                   Import Trades
-                </button>
+                </Link>
               </div>
             </div>
           </div>

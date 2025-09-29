@@ -2,6 +2,7 @@ import React from 'react';
 import Layout from '../components/Layout';
 import { useTrading } from '../context/TradingContext';
 import { Wallet, TrendingUp, TrendingDown, Activity, AlertCircle } from 'lucide-react';
+import Link from 'next/link';
 
 function AccountCard({ account }) {
   const profitPercentage = ((account.totalPL / account.startingBalance) * 100).toFixed(2);
@@ -227,9 +228,12 @@ export default function AccountTracker() {
                 Accounts will automatically appear here when you import trades from your CSV files.
               </p>
               <div className="flex justify-center">
-                <button className="bg-trading-pink hover:bg-trading-pink-dark text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                <Link 
+                  href="/journal"
+                  className="bg-trading-pink hover:bg-trading-pink-dark text-white px-6 py-3 rounded-lg font-medium transition-colors"
+                >
                   Import Trades
-                </button>
+                </Link>
               </div>
             </div>
           </div>
