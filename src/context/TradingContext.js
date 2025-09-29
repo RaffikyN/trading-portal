@@ -216,6 +216,7 @@ export function TradingProvider({ children }) {
       console.warn('Supabase not available - using offline mode');
       setOfflineMode(true);
       setAuthLoading(false);
+      setUser({ email: 'offline@local' }); // Set offline user
       
       // Load from localStorage as fallback
       const localData = loadLocalStorageData();
@@ -230,22 +231,23 @@ export function TradingProvider({ children }) {
       if (error) {
         console.error('Auth session error:', error);
         setOfflineMode(true);
+        setUser({ email: 'offline@local' });
         const localData = loadLocalStorageData();
         if (localData) {
           dispatch({ type: 'LOAD_LOCALSTORAGE', payload: localData });
         }
+      } else {
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          loadUserData(session.user.id);
+        }
       }
-      
-      setUser(session?.user ?? null);
       setAuthLoading(false);
-      
-      if (session?.user) {
-        loadUserData(session.user.id);
-      }
     }).catch((error) => {
       console.error('Failed to get session:', error);
       setOfflineMode(true);
       setAuthLoading(false);
+      setUser({ email: 'offline@local' });
       const localData = loadLocalStorageData();
       if (localData) {
         dispatch({ type: 'LOAD_LOCALSTORAGE', payload: localData });
@@ -253,24 +255,35 @@ export function TradingProvider({ children }) {
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        setUser(session?.user ?? null);
-        setAuthLoading(false);
-        
-        if (session?.user) {
-          await loadUserData(session.user.id);
-        } else {
-          dispatch({ type: 'CLEAR_DATA' });
+    try {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          setUser(session?.user ?? null);
+          setAuthLoading(false);
+          
+          if (session?.user) {
+            await loadUserData(session.user.id);
+          } else {
+            dispatch({ type: 'CLEAR_DATA' });
+          }
         }
-      }
-    );
+      );
 
-    return () => subscription?.unsubscribe();
+      return () => subscription?.unsubscribe();
+    } catch (error) {
+      console.error('Failed to set up auth listener:', error);
+      setOfflineMode(true);
+      setUser({ email: 'offline@local' });
+    }
   }, []);
 
   // Load user data from Supabase
   const loadUserData = async (userId) => {
+    if (!supabase) {
+      console.warn('Supabase not available for loading data');
+      return;
+    }
+
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
 
@@ -326,6 +339,12 @@ export function TradingProvider({ children }) {
 
     } catch (error) {
       console.error('Error loading user data:', error);
+      // Fall back to offline mode if Supabase fails
+      setOfflineMode(true);
+      const localData = loadLocalStorageData();
+      if (localData) {
+        dispatch({ type: 'LOAD_LOCALSTORAGE', payload: localData });
+      }
       dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to load data' });
       dispatch({ type: 'SET_LOADING', payload: false });
     }
@@ -389,38 +408,42 @@ export function TradingProvider({ children }) {
   };
 
   const addWithdrawal = async (withdrawal) => {
-    if (!user) {
-      dispatch({ type: 'SET_ERROR', payload: 'Please sign in to add withdrawals' });
-      return;
-    }
-
     try {
       const withdrawalData = {
-        user_id: user.id,
-        account_name: withdrawal.account,
+        id: Date.now().toString(),
+        account: withdrawal.account,
         amount: withdrawal.amount,
-        withdrawal_date: withdrawal.date || new Date().toISOString().split('T')[0],
+        date: withdrawal.date || new Date().toISOString().split('T')[0],
         description: withdrawal.description || ''
       };
 
-      const { data, error } = await supabase
-        .from('withdrawals')
-        .insert(withdrawalData)
-        .select()
-        .single();
+      // Try to save to Supabase if available and online
+      if (!offlineMode && user && user.id && supabase) {
+        try {
+          const supabaseWithdrawal = {
+            user_id: user.id,
+            account_name: withdrawal.account,
+            amount: withdrawal.amount,
+            withdrawal_date: withdrawal.date || new Date().toISOString().split('T')[0],
+            description: withdrawal.description || ''
+          };
 
-      if (error) throw error;
+          const { data, error } = await supabase
+            .from('withdrawals')
+            .insert(supabaseWithdrawal)
+            .select()
+            .single();
 
-      dispatch({ 
-        type: 'ADD_WITHDRAWAL', 
-        payload: {
-          id: data.id,
-          account: data.account_name,
-          amount: data.amount,
-          date: data.withdrawal_date,
-          description: data.description
+          if (error) throw error;
+          
+          withdrawalData.id = data.id;
+        } catch (error) {
+          console.warn('Failed to save withdrawal to Supabase, using local storage:', error);
+          setOfflineMode(true);
         }
-      });
+      }
+
+      dispatch({ type: 'ADD_WITHDRAWAL', payload: withdrawalData });
     } catch (error) {
       console.error('Error adding withdrawal:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to add withdrawal' });
@@ -428,21 +451,24 @@ export function TradingProvider({ children }) {
   };
 
   const setMonthlyGoal = async (month, amount) => {
-    if (!user) {
-      dispatch({ type: 'SET_ERROR', payload: 'Please sign in to set goals' });
-      return;
-    }
-
     try {
-      const { data, error } = await supabase
-        .from('monthly_goals')
-        .upsert({
-          user_id: user.id,
-          month,
-          goal_amount: amount
-        });
+      // Try to save to Supabase if available and online
+      if (!offlineMode && user && user.id && supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('monthly_goals')
+            .upsert({
+              user_id: user.id,
+              month,
+              goal_amount: amount
+            });
 
-      if (error) throw error;
+          if (error) throw error;
+        } catch (error) {
+          console.warn('Failed to save goal to Supabase, using local storage:', error);
+          setOfflineMode(true);
+        }
+      }
 
       dispatch({ type: 'SET_MONTHLY_GOAL', payload: { month, amount } });
     } catch (error) {
@@ -452,17 +478,27 @@ export function TradingProvider({ children }) {
   };
 
   const clearData = async () => {
-    if (!user) return;
-
     try {
-      // Delete all user data from Supabase
-      await Promise.all([
-        supabase.from('trades').delete().eq('user_id', user.id),
-        supabase.from('withdrawals').delete().eq('user_id', user.id),
-        supabase.from('monthly_goals').delete().eq('user_id', user.id)
-      ]);
+      // Try to delete from Supabase if available and online
+      if (!offlineMode && user && user.id && supabase) {
+        try {
+          await Promise.all([
+            supabase.from('trades').delete().eq('user_id', user.id),
+            supabase.from('withdrawals').delete().eq('user_id', user.id),
+            supabase.from('monthly_goals').delete().eq('user_id', user.id)
+          ]);
+        } catch (error) {
+          console.warn('Failed to clear Supabase data:', error);
+        }
+      }
 
+      // Always clear local data
       dispatch({ type: 'CLEAR_DATA' });
+      
+      // Clear localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('tradingPortalData');
+      }
     } catch (error) {
       console.error('Error clearing data:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to clear data' });

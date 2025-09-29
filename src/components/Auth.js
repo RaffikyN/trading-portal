@@ -11,6 +11,35 @@ export default function Auth() {
     password: ''
   });
 
+  // If Supabase is not available, show offline message
+  if (!supabase) {
+    return (
+      <div className="min-h-screen bg-trading-bg flex items-center justify-center p-6">
+        <div className="max-w-md w-full">
+          <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-8">
+            <div className="text-center mb-8">
+              <h1 className="text-3xl font-bold text-trading-pink mb-2">Trading Portal</h1>
+              <p className="text-trading-text-muted mb-4">
+                Running in offline mode
+              </p>
+              <div className="bg-trading-pink/20 border border-trading-pink/30 rounded-lg p-4">
+                <p className="text-trading-pink text-sm">
+                  📱 Database connection unavailable. Using local storage mode.
+                </p>
+              </div>
+            </div>
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full bg-trading-pink hover:bg-trading-pink-dark text-white font-medium py-3 px-4 rounded-lg transition-colors"
+            >
+              Enter Offline Mode
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
