@@ -1,192 +1,224 @@
 import React, { useState } from 'react';
 import Layout from '../components/Layout';
 import { useTrading } from '../context/TradingContext';
-import { Target, TrendingUp, TrendingDown, Calendar, Plus, Edit, Check, X } from 'lucide-react';
+import { 
+  Target, 
+  TrendingUp, 
+  TrendingDown, 
+  Calendar, 
+  Plus, 
+  Edit, 
+  Trash2,
+  DollarSign,
+  CreditCard,
+  Wallet,
+  PiggyBank,
+  Brain,
+  CheckCircle,
+  XCircle,
+  Calculator,
+  BarChart3
+} from 'lucide-react';
 
-function GoalCard({ month, goal, actual, onEdit, onDelete }) {
-  const [isEditing, setIsEditing] = useState(false);
-  const [editValue, setEditValue] = useState(goal);
+// Expense Categories
+const EXPENSE_CATEGORIES = [
+  'Housing', 'Transportation', 'Food & Dining', 'Utilities', 'Healthcare',
+  'Entertainment', 'Shopping', 'Personal Care', 'Education', 'Insurance',
+  'Credit Cards', 'Loans', 'Investments', 'Other'
+];
 
-  const handleSave = () => {
-    if (editValue && parseFloat(editValue) > 0) {
-      onEdit(month, parseFloat(editValue));
-      setIsEditing(false);
-    }
+// Income Categories  
+const INCOME_CATEGORIES = [
+  'Salary', 'Freelance', 'Business', 'Investments', 'Trading', 'Rental', 'Other'
+];
+
+function CashCalculator({ calculateCashFlow, currentCash, setCurrentCash }) {
+  const [showCalculator, setShowCalculator] = useState(false);
+  const [tempCash, setTempCash] = useState(currentCash.toString());
+
+  const dailyCash = calculateCashFlow('day');
+  const weeklyCash = calculateCashFlow('week');  
+  const monthlyCash = calculateCashFlow('month');
+
+  const handleUpdateCash = () => {
+    setCurrentCash(tempCash);
+    setShowCalculator(false);
   };
-
-  const handleCancel = () => {
-    setEditValue(goal);
-    setIsEditing(false);
-  };
-
-  const difference = actual - goal;
-  const percentageAchieved = goal > 0 ? (actual / goal) * 100 : 0;
-  const isAchieved = actual >= goal;
 
   return (
-    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6 hover:bg-trading-card/30 transition-all duration-300">
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <h3 className="text-lg font-semibold text-trading-text">{month}</h3>
-          <p className="text-trading-text-muted text-sm">
-            Monthly Target
-          </p>
+    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="text-lg font-semibold text-trading-text flex items-center gap-2">
+          <Calculator className="h-5 w-5 text-trading-pink" />
+          Cash Calculator
+        </h3>
+        <button
+          onClick={() => setShowCalculator(!showCalculator)}
+          className="text-trading-pink hover:text-trading-pink-light text-sm"
+        >
+          Update Cash
+        </button>
+      </div>
+
+      {showCalculator && (
+        <div className="mb-6 p-4 bg-trading-card/30 rounded-lg border border-trading-pink/10">
+          <label className="block text-sm font-medium text-trading-text mb-2">
+            Current Cash on Hand
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="number"
+              value={tempCash}
+              onChange={(e) => setTempCash(e.target.value)}
+              className="flex-1 bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none"
+              placeholder="0.00"
+            />
+            <button
+              onClick={handleUpdateCash}
+              className="bg-trading-pink hover:bg-trading-pink-dark text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              Update
+            </button>
+          </div>
         </div>
-        <div className="p-2 bg-trading-pink/20 rounded-full">
-          <Target className="h-5 w-5 text-trading-pink" />
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="text-center p-4 bg-trading-card/20 rounded-lg">
+          <div className="text-sm text-trading-text-muted">Today</div>
+          <div className="text-lg font-bold text-trading-text">${dailyCash.projectedCash.toLocaleString()}</div>
+          <div className={`text-sm ${dailyCash.netCashFlow >= 0 ? 'text-trading-green' : 'text-trading-red'}`}>
+            {dailyCash.netCashFlow >= 0 ? '+' : ''}${dailyCash.netCashFlow.toLocaleString()}
+          </div>
+        </div>
+
+        <div className="text-center p-4 bg-trading-card/20 rounded-lg">
+          <div className="text-sm text-trading-text-muted">This Week</div>
+          <div className="text-lg font-bold text-trading-text">${weeklyCash.projectedCash.toLocaleString()}</div>
+          <div className={`text-sm ${weeklyCash.netCashFlow >= 0 ? 'text-trading-green' : 'text-trading-red'}`}>
+            {weeklyCash.netCashFlow >= 0 ? '+' : ''}${weeklyCash.netCashFlow.toLocaleString()}
+          </div>
+        </div>
+
+        <div className="text-center p-4 bg-trading-card/20 rounded-lg">
+          <div className="text-sm text-trading-text-muted">This Month</div>
+          <div className="text-lg font-bold text-trading-text">${monthlyCash.projectedCash.toLocaleString()}</div>
+          <div className={`text-sm ${monthlyCash.netCashFlow >= 0 ? 'text-trading-green' : 'text-trading-red'}`}>
+            {monthlyCash.netCashFlow >= 0 ? '+' : ''}${monthlyCash.netCashFlow.toLocaleString()}
+          </div>
         </div>
       </div>
 
-      <div className="space-y-4">
-        {/* Goal Amount */}
-        <div className="flex items-center justify-between">
-          <span className="text-trading-text-muted">Goal:</span>
-          {isEditing ? (
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                className="bg-trading-card border border-trading-gray rounded px-2 py-1 text-trading-text text-sm w-24 focus:border-trading-pink focus:outline-none"
-                step="100"
-                min="0"
-              />
-              <button onClick={handleSave} className="text-trading-green hover:text-trading-green/70 p-1">
-                <Check size={16} />
-              </button>
-              <button onClick={handleCancel} className="text-trading-red hover:text-trading-red/70 p-1">
-                <X size={16} />
-              </button>
-            </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <span className="text-trading-text font-semibold">${goal.toLocaleString()}</span>
-              <button 
-                onClick={() => setIsEditing(true)}
-                className="text-trading-pink hover:text-trading-pink/70 p-1"
-              >
-                <Edit size={14} />
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Actual Amount */}
-        <div className="flex items-center justify-between">
-          <span className="text-trading-text-muted">Actual:</span>
-          <span className={`font-semibold ${actual >= 0 ? 'text-trading-green' : 'text-trading-red'}`}>
-            ${actual.toLocaleString()}
-          </span>
-        </div>
-
-        {/* Difference */}
-        <div className="flex items-center justify-between">
-          <span className="text-trading-text-muted">Difference:</span>
-          <span className={`font-semibold ${difference >= 0 ? 'text-trading-green' : 'text-trading-red'}`}>
-            {difference >= 0 ? '+' : ''}${difference.toLocaleString()}
-          </span>
-        </div>
-
-        {/* Progress Bar */}
-        <div className="space-y-2">
-          <div className="flex justify-between text-xs text-trading-text-muted">
-            <span>Progress</span>
-            <span>{percentageAchieved.toFixed(1)}%</span>
-          </div>
-          <div className="w-full bg-trading-gray/30 rounded-full h-3">
-            <div 
-              className={`h-3 rounded-full transition-all duration-500 ${
-                isAchieved ? 'bg-trading-green' : percentageAchieved > 80 ? 'bg-trading-pink' : 'bg-trading-red'
-              }`}
-              style={{ width: `${Math.min(percentageAchieved, 100)}%` }}
-            />
-          </div>
-        </div>
-
-        {/* Status */}
-        <div className="flex items-center justify-center pt-2">
-          <div className={`px-3 py-1 rounded-full text-xs font-medium ${
-            isAchieved ? 'bg-trading-green/20 text-trading-green' : 
-            percentageAchieved > 80 ? 'bg-trading-pink/20 text-trading-pink' :
-            'bg-trading-red/20 text-trading-red'
-          }`}>
-            {isAchieved ? 'Goal Achieved!' : 
-             percentageAchieved > 80 ? 'Close to Goal' : 
-             'Below Target'}
-          </div>
+      <div className="mt-4 text-center">
+        <div className="text-2xl font-bold text-trading-text">
+          Current Cash: ${currentCash.toLocaleString()}
         </div>
       </div>
     </div>
   );
 }
 
-function NewGoalForm({ onSubmit, onCancel }) {
-  const [formData, setFormData] = useState({
-    month: '',
-    amount: ''
+function ExpenseForm({ onSubmit, onCancel, editingExpense }) {
+  const [formData, setFormData] = useState(editingExpense || {
+    category: '',
+    description: '',
+    amount: '',
+    dueDate: new Date().toISOString().split('T')[0],
+    isPaid: false,
+    isRecurring: false
   });
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.month || !formData.amount) return;
+    if (!formData.category || !formData.description || !formData.amount) return;
 
-    onSubmit(formData.month, parseFloat(formData.amount));
-    setFormData({ month: '', amount: '' });
-  };
-
-  // Generate month options for current year and next year
-  const generateMonthOptions = () => {
-    const options = [];
-    const currentYear = new Date().getFullYear();
-    const months = [
-      'January', 'February', 'March', 'April', 'May', 'June',
-      'July', 'August', 'September', 'October', 'November', 'December'
-    ];
-
-    for (let year = currentYear; year <= currentYear + 1; year++) {
-      months.forEach((month, index) => {
-        const key = `${month} ${year}`;
-        options.push({ key, value: key });
-      });
-    }
-
-    return options;
+    onSubmit({
+      ...formData,
+      amount: parseFloat(formData.amount)
+    });
   };
 
   return (
     <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
-      <h3 className="text-lg font-semibold text-trading-text mb-4">Set New Monthly Goal</h3>
+      <h3 className="text-lg font-semibold text-trading-text mb-4">
+        {editingExpense ? 'Edit Expense' : 'Add New Expense'}
+      </h3>
       
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-trading-text mb-2">Month</label>
+            <label className="block text-sm font-medium text-trading-text mb-2">Category</label>
             <select
-              value={formData.month}
-              onChange={(e) => setFormData({ ...formData, month: e.target.value })}
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
               className="w-full bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none"
               required
             >
-              <option value="">Select Month</option>
-              {generateMonthOptions().map(option => (
-                <option key={option.key} value={option.value}>{option.value}</option>
+              <option value="">Select Category</option>
+              {EXPENSE_CATEGORIES.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
               ))}
             </select>
           </div>
           
           <div>
-            <label className="block text-sm font-medium text-trading-text mb-2">Target Amount</label>
+            <label className="block text-sm font-medium text-trading-text mb-2">Amount</label>
             <input
               type="number"
-              step="100"
+              step="0.01"
               min="0"
               value={formData.amount}
               onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
               className="w-full bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none"
-              placeholder="10000"
+              placeholder="0.00"
               required
             />
           </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-trading-text mb-2">Description</label>
+          <input
+            type="text"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            className="w-full bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none"
+            placeholder="e.g., Bank of America Credit Card"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-trading-text mb-2">Due Date</label>
+          <input
+            type="date"
+            value={formData.dueDate}
+            onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+            className="w-full bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none"
+            required
+          />
+        </div>
+
+        <div className="flex gap-6">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={formData.isPaid}
+              onChange={(e) => setFormData({ ...formData, isPaid: e.target.checked })}
+              className="mr-2 accent-trading-pink"
+            />
+            <span className="text-trading-text">Paid?</span>
+          </label>
+
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={formData.isRecurring}
+              onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
+              className="mr-2 accent-trading-pink"
+            />
+            <span className="text-trading-text">Recurring?</span>
+          </label>
         </div>
 
         <div className="flex gap-3 pt-4">
@@ -194,7 +226,7 @@ function NewGoalForm({ onSubmit, onCancel }) {
             type="submit"
             className="bg-trading-pink hover:bg-trading-pink-dark text-white px-6 py-2 rounded-lg font-medium transition-colors"
           >
-            Set Goal
+            {editingExpense ? 'Update' : 'Add'} Expense
           </button>
           {onCancel && (
             <button
@@ -211,195 +243,590 @@ function NewGoalForm({ onSubmit, onCancel }) {
   );
 }
 
-function PlannerStats({ monthlyGoals, trades }) {
-  const totalGoals = Object.keys(monthlyGoals).length;
-  const totalTargetAmount = Object.values(monthlyGoals).reduce((sum, goal) => sum + goal, 0);
-  
-  // Calculate actual amounts by month
-  const monthlyActuals = {};
-  trades.forEach(trade => {
-    const date = new Date(trade.date);
-    const monthKey = `${date.toLocaleString('en-US', { month: 'long' })} ${date.getFullYear()}`;
-    if (!monthlyActuals[monthKey]) {
-      monthlyActuals[monthKey] = 0;
-    }
-    monthlyActuals[monthKey] += trade.profit;
+function IncomeForm({ onSubmit, onCancel, editingIncome }) {
+  const [formData, setFormData] = useState(editingIncome || {
+    category: '',
+    description: '',
+    amount: '',
+    date: new Date().toISOString().split('T')[0],
+    isPaid: false,
+    isRecurring: false
   });
 
-  let achievedGoals = 0;
-  Object.keys(monthlyGoals).forEach(month => {
-    const actual = monthlyActuals[month] || 0;
-    if (actual >= monthlyGoals[month]) {
-      achievedGoals++;
-    }
-  });
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!formData.category || !formData.description || !formData.amount) return;
 
-  const achievementRate = totalGoals > 0 ? (achievedGoals / totalGoals) * 100 : 0;
+    onSubmit({
+      ...formData,
+      amount: parseFloat(formData.amount)
+    });
+  };
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-      <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
-        <div className="flex items-center justify-between">
+    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
+      <h3 className="text-lg font-semibold text-trading-text mb-4">
+        {editingIncome ? 'Edit Income' : 'Add New Income'}
+      </h3>
+      
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <p className="text-trading-text-muted text-sm">Total Goals</p>
-            <p className="text-2xl font-bold text-trading-text">{totalGoals}</p>
+            <label className="block text-sm font-medium text-trading-text mb-2">Category</label>
+            <select
+              value={formData.category}
+              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+              className="w-full bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none"
+              required
+            >
+              <option value="">Select Category</option>
+              {INCOME_CATEGORIES.map(cat => (
+                <option key={cat} value={cat}>{cat}</option>
+              ))}
+            </select>
           </div>
-          <Target className="h-8 w-8 text-trading-pink" />
+          
+          <div>
+            <label className="block text-sm font-medium text-trading-text mb-2">Amount</label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={formData.amount}
+              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
+              className="w-full bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none"
+              placeholder="0.00"
+              required
+            />
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-trading-text mb-2">Description</label>
+          <input
+            type="text"
+            value={formData.description}
+            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+            className="w-full bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none"
+            placeholder="e.g., Centauro Salary"
+            required
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-trading-text mb-2">Date</label>
+          <input
+            type="date"
+            value={formData.date}
+            onChange={(e) => setFormData({ ...formData, date: e.target.value })}
+            className="w-full bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none"
+            required
+          />
+        </div>
+
+        <div className="flex gap-6">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={formData.isPaid}
+              onChange={(e) => setFormData({ ...formData, isPaid: e.target.checked })}
+              className="mr-2 accent-trading-pink"
+            />
+            <span className="text-trading-text">Received?</span>
+          </label>
+
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              checked={formData.isRecurring}
+              onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
+              className="mr-2 accent-trading-pink"
+            />
+            <span className="text-trading-text">Recurring?</span>
+          </label>
+        </div>
+
+        <div className="flex gap-3 pt-4">
+          <button
+            type="submit"
+            className="bg-trading-green hover:bg-trading-green/80 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+          >
+            {editingIncome ? 'Update' : 'Add'} Income
+          </button>
+          {onCancel && (
+            <button
+              type="button"
+              onClick={onCancel}
+              className="bg-trading-card hover:bg-trading-gray text-trading-text px-6 py-2 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+          )}
+        </div>
+      </form>
+    </div>
+  );
+}
+
+function SmartInvestor({ netWorth, calculateCashFlow }) {
+  const monthlyCashFlow = calculateCashFlow('month');
+  const availableCash = Math.max(0, monthlyCashFlow.projectedCash - 1000); // Keep $1000 buffer
+
+  const getInvestmentSuggestions = () => {
+    const suggestions = [];
+
+    if (availableCash < 500) {
+      suggestions.push({
+        type: 'Emergency Fund',
+        suggestion: 'Focus on building an emergency fund of 3-6 months of expenses before investing.',
+        priority: 'High'
+      });
+    } else if (availableCash < 2000) {
+      suggestions.push({
+        type: 'High-Yield Savings',
+        suggestion: 'Consider a high-yield savings account or money market fund for liquidity.',
+        priority: 'Medium'
+      });
+    } else {
+      suggestions.push({
+        type: 'Index Funds',
+        suggestion: 'Consider low-cost index funds (S&P 500) for long-term growth.',
+        priority: 'High'
+      });
+      suggestions.push({
+        type: 'Trading Capital',
+        suggestion: 'Allocate some funds to expand your trading accounts for higher returns.',
+        priority: 'Medium'
+      });
+    }
+
+    if (netWorth > 10000) {
+      suggestions.push({
+        type: 'Diversification',
+        suggestion: 'Consider diversifying with bonds, REITs, or international funds.',
+        priority: 'Medium'
+      });
+    }
+
+    return suggestions;
+  };
+
+  const suggestions = getInvestmentSuggestions();
+
+  return (
+    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
+      <h3 className="text-lg font-semibold text-trading-text mb-4 flex items-center gap-2">
+        <Brain className="h-5 w-5 text-trading-pink" />
+        Smart Investor
+      </h3>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="text-center p-4 bg-trading-card/30 rounded-lg">
+          <div className="text-sm text-trading-text-muted">Net Worth</div>
+          <div className="text-2xl font-bold text-trading-green">${netWorth.toLocaleString()}</div>
+        </div>
+        <div className="text-center p-4 bg-trading-card/30 rounded-lg">
+          <div className="text-sm text-trading-text-muted">Available to Invest</div>
+          <div className="text-2xl font-bold text-trading-pink">${availableCash.toLocaleString()}</div>
         </div>
       </div>
 
-      <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-trading-text-muted text-sm">Goals Achieved</p>
-            <p className="text-2xl font-bold text-trading-green">{achievedGoals}</p>
+      <div className="space-y-4">
+        <h4 className="font-semibold text-trading-text">Investment Recommendations:</h4>
+        {suggestions.map((suggestion, index) => (
+          <div key={index} className="p-4 bg-trading-card/30 rounded-lg border-l-4 border-trading-pink/50">
+            <div className="flex justify-between items-start mb-2">
+              <h5 className="font-medium text-trading-text">{suggestion.type}</h5>
+              <span className={`px-2 py-1 rounded-full text-xs ${
+                suggestion.priority === 'High' ? 'bg-trading-red/20 text-trading-red' :
+                suggestion.priority === 'Medium' ? 'bg-trading-pink/20 text-trading-pink' :
+                'bg-trading-gray/20 text-trading-text-muted'
+              }`}>
+                {suggestion.priority} Priority
+              </span>
+            </div>
+            <p className="text-trading-text-muted text-sm">{suggestion.suggestion}</p>
           </div>
-          <TrendingUp className="h-8 w-8 text-trading-green" />
-        </div>
-      </div>
-
-      <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-trading-text-muted text-sm">Achievement Rate</p>
-            <p className="text-2xl font-bold text-trading-text">{achievementRate.toFixed(1)}%</p>
-          </div>
-          <Calendar className="h-8 w-8 text-trading-pink" />
-        </div>
-      </div>
-
-      <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-trading-text-muted text-sm">Total Target</p>
-            <p className="text-2xl font-bold text-trading-text">${totalTargetAmount.toLocaleString()}</p>
-          </div>
-          <TrendingUp className="h-8 w-8 text-trading-pink" />
-        </div>
+        ))}
       </div>
     </div>
   );
 }
 
 export default function FinancialPlanner() {
-  const { monthlyGoals, setMonthlyGoal, trades } = useTrading();
-  const [showForm, setShowForm] = useState(false);
+  const { 
+    expenses, 
+    incomes, 
+    currentCash,
+    addExpense,
+    updateExpense,
+    deleteExpense,
+    addIncome,
+    updateIncome,
+    deleteIncome,
+    setCurrentCash,
+    calculateCashFlow,
+    calculateNetWorth
+  } = useTrading();
 
-  const handleSetGoal = (month, amount) => {
-    setMonthlyGoal(month, amount);
-    setShowForm(false);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [showExpenseForm, setShowExpenseForm] = useState(false);
+  const [showIncomeForm, setShowIncomeForm] = useState(false);
+  const [editingExpense, setEditingExpense] = useState(null);
+  const [editingIncome, setEditingIncome] = useState(null);
+
+  const netWorth = calculateNetWorth();
+
+  const handleAddExpense = (expense) => {
+    if (editingExpense) {
+      updateExpense({ ...expense, id: editingExpense.id });
+      setEditingExpense(null);
+    } else {
+      addExpense(expense);
+    }
+    setShowExpenseForm(false);
   };
 
-  // Calculate actual amounts by month for comparison
-  const monthlyActuals = {};
-  trades.forEach(trade => {
-    const date = new Date(trade.date);
-    const monthKey = `${date.toLocaleString('en-US', { month: 'long' })} ${date.getFullYear()}`;
-    if (!monthlyActuals[monthKey]) {
-      monthlyActuals[monthKey] = 0;
+  const handleAddIncome = (income) => {
+    if (editingIncome) {
+      updateIncome({ ...income, id: editingIncome.id });
+      setEditingIncome(null);
+    } else {
+      addIncome(income);
     }
-    monthlyActuals[monthKey] += trade.profit;
-  });
+    setShowIncomeForm(false);
+  };
 
-  const hasGoals = Object.keys(monthlyGoals).length > 0;
+  const handleEditExpense = (expense) => {
+    setEditingExpense(expense);
+    setShowExpenseForm(true);
+  };
+
+  const handleEditIncome = (income) => {
+    setEditingIncome(income);
+    setShowIncomeForm(true);
+  };
+
+  const totalExpenses = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+  const totalIncome = incomes.reduce((sum, inc) => sum + inc.amount, 0);
 
   return (
     <Layout>
       <div className="p-6 lg:p-8">
         {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold text-trading-text">Financial Planner</h1>
-            <p className="text-trading-text-muted mt-2">
-              Set and track your monthly trading goals and targets.
-            </p>
-          </div>
-          
-          <button
-            onClick={() => setShowForm(!showForm)}
-            className="flex items-center gap-2 bg-trading-pink hover:bg-trading-pink-dark text-white px-4 py-2 rounded-lg font-medium transition-colors"
-          >
-            <Plus size={16} />
-            {showForm ? 'Hide Form' : 'Set New Goal'}
-          </button>
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold text-trading-text">Financial Planner</h1>
+          <p className="text-trading-text-muted mt-2">
+            Complete personal finance management and investment planning.
+          </p>
         </div>
 
-        {/* Stats */}
-        {hasGoals && <PlannerStats monthlyGoals={monthlyGoals} trades={trades} />}
+        {/* Tab Navigation */}
+        <div className="flex flex-wrap gap-2 mb-8">
+          {[
+            { id: 'overview', label: 'Overview', icon: BarChart3 },
+            { id: 'expenses', label: 'Expenses', icon: CreditCard },
+            { id: 'income', label: 'Income', icon: DollarSign },
+            { id: 'calculator', label: 'Cash Calculator', icon: Calculator },
+            { id: 'investor', label: 'Smart Investor', icon: Brain }
+          ].map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeTab === tab.id
+                    ? 'bg-trading-pink/20 text-trading-pink border border-trading-pink/30'
+                    : 'text-trading-text-muted hover:text-trading-text hover:bg-trading-card/30'
+                }`}
+              >
+                <Icon size={16} />
+                {tab.label}
+              </button>
+            );
+          })}
+        </div>
 
-        {/* New Goal Form */}
-        {showForm && (
-          <div className="mb-8">
-            <NewGoalForm
-              onSubmit={handleSetGoal}
-              onCancel={() => setShowForm(false)}
+        {/* Overview Tab */}
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            {/* Summary Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-trading-text-muted text-sm">Net Worth</p>
+                    <p className="text-2xl font-bold text-trading-green">${netWorth.toLocaleString()}</p>
+                  </div>
+                  <PiggyBank className="h-8 w-8 text-trading-green" />
+                </div>
+              </div>
+
+              <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-trading-text-muted text-sm">Current Cash</p>
+                    <p className="text-2xl font-bold text-trading-text">${currentCash.toLocaleString()}</p>
+                  </div>
+                  <Wallet className="h-8 w-8 text-trading-pink" />
+                </div>
+              </div>
+
+              <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-trading-text-muted text-sm">Monthly Income</p>
+                    <p className="text-2xl font-bold text-trading-green">${totalIncome.toLocaleString()}</p>
+                  </div>
+                  <TrendingUp className="h-8 w-8 text-trading-green" />
+                </div>
+              </div>
+
+              <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-trading-text-muted text-sm">Monthly Expenses</p>
+                    <p className="text-2xl font-bold text-trading-red">${totalExpenses.toLocaleString()}</p>
+                  </div>
+                  <TrendingDown className="h-8 w-8 text-trading-red" />
+                </div>
+              </div>
+            </div>
+
+            {/* Cash Calculator */}
+            <CashCalculator 
+              calculateCashFlow={calculateCashFlow}
+              currentCash={currentCash}
+              setCurrentCash={setCurrentCash}
+            />
+
+            {/* Smart Investor */}
+            <SmartInvestor 
+              netWorth={netWorth}
+              calculateCashFlow={calculateCashFlow}
             />
           </div>
         )}
 
-        {/* Goals Grid */}
-        {hasGoals ? (
-          <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-6">
-            {Object.entries(monthlyGoals).map(([month, goal]) => (
-              <GoalCard
-                key={month}
-                month={month}
-                goal={goal}
-                actual={monthlyActuals[month] || 0}
-                onEdit={setMonthlyGoal}
-                onDelete={() => {
-                  // TODO: Implement delete functionality
-                  console.log('Delete goal for', month);
+        {/* Expenses Tab */}
+        {activeTab === 'expenses' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-trading-text">Manage Expenses</h2>
+              <button
+                onClick={() => {
+                  setEditingExpense(null);
+                  setShowExpenseForm(!showExpenseForm);
                 }}
+                className="flex items-center gap-2 bg-trading-pink hover:bg-trading-pink-dark text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                <Plus size={16} />
+                Add Expense
+              </button>
+            </div>
+
+            {showExpenseForm && (
+              <ExpenseForm
+                onSubmit={handleAddExpense}
+                onCancel={() => {
+                  setShowExpenseForm(false);
+                  setEditingExpense(null);
+                }}
+                editingExpense={editingExpense}
               />
-            ))}
-          </div>
-        ) : (
-          <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-12">
-            <div className="text-center">
-              <Target className="h-16 w-16 text-trading-text-muted mx-auto mb-4" />
-              <h3 className="text-xl font-semibold text-trading-text mb-2">No Goals Set</h3>
-              <p className="text-trading-text-muted mb-6">
-                Start planning your trading success by setting monthly profit goals.
-              </p>
-              <div className="flex justify-center">
-                <button 
-                  onClick={() => setShowForm(true)}
-                  className="bg-trading-pink hover:bg-trading-pink-dark text-white px-6 py-3 rounded-lg font-medium transition-colors"
-                >
-                  Set Your First Goal
-                </button>
+            )}
+
+            {/* Expenses List */}
+            <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg overflow-hidden">
+              <div className="p-4 border-b border-trading-pink/20">
+                <h3 className="text-lg font-semibold text-trading-text">Expenses List</h3>
               </div>
+              
+              {expenses.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-trading-pink/10 border-b border-trading-pink/20">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-trading-text">Category</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-trading-text">Description</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-trading-text">Amount</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-trading-text">Due Date</th>
+                        <th className="px-4 py-3 text-center text-sm font-semibold text-trading-text">Status</th>
+                        <th className="px-4 py-3 text-center text-sm font-semibold text-trading-text">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {expenses.map((expense) => (
+                        <tr key={expense.id} className="border-b border-trading-gray/30 hover:bg-trading-pink/5 transition-colors">
+                          <td className="px-4 py-3 text-sm text-trading-text">{expense.category}</td>
+                          <td className="px-4 py-3 text-sm text-trading-text">{expense.description}</td>
+                          <td className="px-4 py-3 text-sm text-trading-red text-right font-medium">
+                            ${expense.amount.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-trading-text-muted">
+                            {new Date(expense.dueDate).toLocaleDateString()}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              {expense.isPaid ? (
+                                <CheckCircle className="h-4 w-4 text-trading-green" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-trading-red" />
+                              )}
+                              {expense.isRecurring && (
+                                <div className="w-2 h-2 bg-trading-pink rounded-full" title="Recurring" />
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button 
+                                onClick={() => handleEditExpense(expense)}
+                                className="text-trading-pink hover:text-trading-pink/70 p-1"
+                              >
+                                <Edit size={14} />
+                              </button>
+                              <button 
+                                onClick={() => deleteExpense(expense.id)}
+                                className="text-trading-red hover:text-trading-red/70 p-1"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-8 text-center">
+                  <CreditCard className="h-12 w-12 text-trading-text-muted mx-auto mb-4" />
+                  <p className="text-trading-text-muted">No expenses added yet.</p>
+                </div>
+              )}
             </div>
           </div>
         )}
 
-        {/* Tips Section */}
-        <div className="mt-8 bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
-          <h3 className="text-lg font-semibold text-trading-text mb-4">Goal Setting Tips</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <h4 className="font-medium text-trading-text mb-2">SMART Goals</h4>
-              <ul className="text-trading-text-muted text-sm space-y-1">
-                <li>• Specific: Clear profit targets</li>
-                <li>• Measurable: Dollar amounts or percentages</li>
-                <li>• Achievable: Based on your track record</li>
-                <li>• Relevant: Aligned with your trading strategy</li>
-                <li>• Time-bound: Monthly deadlines</li>
-              </ul>
+        {/* Income Tab */}
+        {activeTab === 'income' && (
+          <div className="space-y-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-xl font-semibold text-trading-text">Manage Income</h2>
+              <button
+                onClick={() => {
+                  setEditingIncome(null);
+                  setShowIncomeForm(!showIncomeForm);
+                }}
+                className="flex items-center gap-2 bg-trading-green hover:bg-trading-green/80 text-white px-4 py-2 rounded-lg transition-colors"
+              >
+                <Plus size={16} />
+                Add Income
+              </button>
             </div>
-            <div>
-              <h4 className="font-medium text-trading-text mb-2">Best Practices</h4>
-              <ul className="text-trading-text-muted text-sm space-y-1">
-                <li>• Start with conservative goals</li>
-                <li>• Review and adjust monthly</li>
-                <li>• Consider market conditions</li>
-                <li>• Factor in risk management</li>
-                <li>• Track progress regularly</li>
-              </ul>
+
+            {showIncomeForm && (
+              <IncomeForm
+                onSubmit={handleAddIncome}
+                onCancel={() => {
+                  setShowIncomeForm(false);
+                  setEditingIncome(null);
+                }}
+                editingIncome={editingIncome}
+              />
+            )}
+
+            {/* Income List */}
+            <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg overflow-hidden">
+              <div className="p-4 border-b border-trading-pink/20">
+                <h3 className="text-lg font-semibold text-trading-text">Income List</h3>
+              </div>
+              
+              {incomes.length > 0 ? (
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-trading-green/10 border-b border-trading-green/20">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-trading-text">Category</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-trading-text">Description</th>
+                        <th className="px-4 py-3 text-right text-sm font-semibold text-trading-text">Amount</th>
+                        <th className="px-4 py-3 text-left text-sm font-semibold text-trading-text">Date</th>
+                        <th className="px-4 py-3 text-center text-sm font-semibold text-trading-text">Status</th>
+                        <th className="px-4 py-3 text-center text-sm font-semibold text-trading-text">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {incomes.map((income) => (
+                        <tr key={income.id} className="border-b border-trading-gray/30 hover:bg-trading-green/5 transition-colors">
+                          <td className="px-4 py-3 text-sm text-trading-text">{income.category}</td>
+                          <td className="px-4 py-3 text-sm text-trading-text">{income.description}</td>
+                          <td className="px-4 py-3 text-sm text-trading-green text-right font-medium">
+                            +${income.amount.toLocaleString()}
+                          </td>
+                          <td className="px-4 py-3 text-sm text-trading-text-muted">
+                            {new Date(income.date).toLocaleDateString()}
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex items-center justify-center gap-2">
+                              {income.isPaid ? (
+                                <CheckCircle className="h-4 w-4 text-trading-green" />
+                              ) : (
+                                <XCircle className="h-4 w-4 text-trading-red" />
+                              )}
+                              {income.isRecurring && (
+                                <div className="w-2 h-2 bg-trading-pink rounded-full" title="Recurring" />
+                              )}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3 text-center">
+                            <div className="flex items-center justify-center gap-1">
+                              <button 
+                                onClick={() => handleEditIncome(income)}
+                                className="text-trading-pink hover:text-trading-pink/70 p-1"
+                              >
+                                <Edit size={14} />
+                              </button>
+                              <button 
+                                onClick={() => deleteIncome(income.id)}
+                                className="text-trading-red hover:text-trading-red/70 p-1"
+                              >
+                                <Trash2 size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <div className="p-8 text-center">
+                  <DollarSign className="h-12 w-12 text-trading-text-muted mx-auto mb-4" />
+                  <p className="text-trading-text-muted">No income sources added yet.</p>
+                </div>
+              )}
             </div>
           </div>
-        </div>
+        )}
+
+        {/* Cash Calculator Tab */}
+        {activeTab === 'calculator' && (
+          <CashCalculator 
+            calculateCashFlow={calculateCashFlow}
+            currentCash={currentCash}
+            setCurrentCash={setCurrentCash}
+          />
+        )}
+
+        {/* Smart Investor Tab */}
+        {activeTab === 'investor' && (
+          <SmartInvestor 
+            netWorth={netWorth}
+            calculateCashFlow={calculateCashFlow}
+          />
+        )}
       </div>
     </Layout>
   );
