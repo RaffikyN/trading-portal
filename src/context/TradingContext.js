@@ -1,4 +1,4 @@
-const setCurrentCash = (amount) => {
+  const setCurrentCash = (amount) => {
     const parsedAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     const finalAmount = isNaN(parsedAmount) ? 0 : parsedAmount;
     console.log('Setting current cash to:', finalAmount); // Debug log
@@ -42,6 +42,7 @@ import { supabase } from '../../lib/supabase';
 
 const TradingContext = createContext();
 
+// Version: 1.1.0 - Force rebuild
 // Fallback to localStorage if Supabase fails
 const loadLocalStorageData = () => {
   if (typeof window === 'undefined') return null;
@@ -777,7 +778,7 @@ export function TradingProvider({ children }) {
 
   const value = {
     ...state,
-    user: offlineMode ? { email: 'offline@local' } : user, // Show offline user
+    user: offlineMode ? { email: 'offline@local' } : user,
     authLoading,
     offlineMode,
     importTrades,
@@ -785,7 +786,7 @@ export function TradingProvider({ children }) {
     setMonthlyGoal,
     clearData,
     signOut,
-    // Personal Finance Functions
+    // Personal Finance Functions - exported from context
     setCurrentCash,
     addExpense,
     updateExpense,
