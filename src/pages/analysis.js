@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '../components/Layout';
 import { useTrading } from '../context/TradingContext';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, PieChart, Pie, Cell } from 'recharts';
-import { TrendingUp, TrendingDown, Target, Clock, Calendar, DollarSign } from 'lucide-react';
+import { TrendingUp, TrendingDown, Target, Clock, Calendar, DollarSign, X } from 'lucide-react';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 
 function StatCard({ title, value, subtitle, icon: Icon, trend }) {
   return (
@@ -317,6 +318,26 @@ function WinLossDistribution({ trades }) {
 
 export default function Analysis() {
   const { trades, totalPL, winRate, totalTrades } = useTrading();
+  const router = useRouter();
+  const [filteredTrades, setFilteredTrades] = useState(trades);
+  const [dateFilter, setDateFilter] = useState(null);
+
+  // Handle date filter from URL
+  useEffect(() => {
+    if (router.query.date) {
+      const filterDate = router.query.date;
+      setDateFilter(filterDate);
+      const filtered = trades.filter(trade => trade.date === filterDate);
+      setFilteredTrades(filtered);
+    } else {
+      setFilteredTrades(trades);
+      setDateFilter(null);
+    }
+  }, [router.query.date, trades]);
+
+  const clearDateFilter = () => {
+    router.push('/analysis');
+  };
 
   if (trades.length === 0) {
     return (
@@ -351,40 +372,58 @@ export default function Analysis() {
     );
   }
 
-  // Calculate additional metrics
-  const winningTrades = trades.filter(t => t.profit > 0);
-  const losingTrades = trades.filter(t => t.profit < 0);
+  // Calculate additional metrics using filtered trades
+  const winningTrades = filteredTrades.filter(t => t.profit > 0);
+  const losingTrades = filteredTrades.filter(t => t.profit < 0);
   const avgWin = winningTrades.length > 0 ? winningTrades.reduce((sum, t) => sum + t.profit, 0) / winningTrades.length : 0;
   const avgLoss = losingTrades.length > 0 ? losingTrades.reduce((sum, t) => sum + t.profit, 0) / losingTrades.length : 0;
   const profitFactor = avgLoss !== 0 ? Math.abs(avgWin / avgLoss) : 0;
-  const expectancy = (winRate / 100) * avgWin + ((100 - winRate) / 100) * avgLoss;
+  const filteredTotalPL = filteredTrades.reduce((sum, trade) => sum + trade.profit, 0);
+  const filteredWinRate = filteredTrades.length > 0 ? (winningTrades.length / filteredTrades.length) * 100 : 0;
+  const expectancy = (filteredWinRate / 100) * avgWin + ((100 - filteredWinRate) / 100) * avgLoss;
 
   return (
     <Layout>
       <div className="p-6 lg:p-8">
-        {/* Header */}
+        {/* Header with date filter */}
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-trading-text">Analysis</h1>
-          <p className="text-trading-text-muted mt-2">
-            Comprehensive performance analysis and trading insights.
-          </p>
+          <div className="flex items-center gap-4 mt-2">
+            <p className="text-trading-text-muted">
+              {dateFilter ? `Performance for ${new Date(dateFilter).toLocaleDateString('en-US', { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric' 
+              })}` : 'Comprehensive performance analysis and trading insights.'}
+            </p>
+            {dateFilter && (
+              <button
+                onClick={clearDateFilter}
+                className="flex items-center gap-1 bg-trading-pink/20 hover:bg-trading-pink/30 text-trading-pink px-3 py-1 rounded-lg text-sm transition-colors"
+              >
+                <X size={14} />
+                Clear Filter
+              </button>
+            )}
+          </div>
         </div>
 
         {/* Key Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
             title="Total P&L"
-            value={`$${totalPL.toLocaleString()}`}
-            subtitle={`From ${totalTrades} trades`}
-            icon={totalPL >= 0 ? TrendingUp : TrendingDown}
-            trend={totalPL >= 0 ? 'up' : 'down'}
+            value={`${filteredTotalPL.toLocaleString()}`}
+            subtitle={`From ${filteredTrades.length} trades`}
+            icon={filteredTotalPL >= 0 ? TrendingUp : TrendingDown}
+            trend={filteredTotalPL >= 0 ? 'up' : 'down'}
           />
           <StatCard
             title="Win Rate"
-            value={`${winRate.toFixed(1)}%`}
+            value={`${filteredWinRate.toFixed(1)}%`}
             subtitle={`${winningTrades.length}W / ${losingTrades.length}L`}
             icon={Target}
-            trend={winRate >= 50 ? 'up' : 'down'}
+            trend={filteredWinRate >= 50 ? 'up' : 'down'}
           />
           <StatCard
             title="Profit Factor"
@@ -395,7 +434,7 @@ export default function Analysis() {
           />
           <StatCard
             title="Expectancy"
-            value={`$${expectancy.toFixed(0)}`}
+            value={`${expectancy.toFixed(0)}`}
             subtitle="Per trade"
             icon={TrendingUp}
             trend={expectancy > 0 ? 'up' : 'down'}
@@ -404,16 +443,16 @@ export default function Analysis() {
 
         {/* Instrument Breakdown */}
         <div className="mb-8">
-          <InstrumentBreakdown trades={trades} />
+          <InstrumentBreakdown trades={filteredTrades} />
         </div>
 
         {/* Time Analysis */}
         <div className="mb-8">
-          <TimeAnalysis trades={trades} />
+          <TimeAnalysis trades={filteredTrades} />
         </div>
 
         {/* Win/Loss Distribution */}
-        <WinLossDistribution trades={trades} />
+        <WinLossDistribution trades={filteredTrades} />
       </div>
     </Layout>
   );

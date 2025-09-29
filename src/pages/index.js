@@ -4,6 +4,7 @@ import { useTrading } from '../context/TradingContext';
 import { TrendingUp, TrendingDown, Users, ArrowDownLeft, Target, Calendar } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 import Link from 'next/link';
+import { useRouter } from 'next/router';
 
 function StatCard({ title, value, subtitle, icon: Icon, trend }) {
   return (
@@ -86,13 +87,19 @@ function PerformanceChart({ trades }) {
 }
 
 function TradingCalendar({ trades }) {
+  const router = useRouter();
+  
   // Group trades by date
-  const dailyPL = trades.reduce((acc, trade) => {
+  const dailyData = trades.reduce((acc, trade) => {
     const date = trade.date;
     if (!acc[date]) {
-      acc[date] = 0;
+      acc[date] = {
+        pnl: 0,
+        trades: 0
+      };
     }
-    acc[date] += trade.profit;
+    acc[date].pnl += trade.profit;
+    acc[date].trades += 1;
     return acc;
   }, {});
 
@@ -115,16 +122,29 @@ function TradingCalendar({ trades }) {
   // Add days of the month
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const pnl = dailyPL[dateStr] || 0;
-    days.push({ day, pnl, dateStr });
+    const dayData = dailyData[dateStr] || { pnl: 0, trades: 0 };
+    days.push({ 
+      day, 
+      dateStr, 
+      pnl: dayData.pnl, 
+      trades: dayData.trades,
+      hasData: dayData.trades > 0
+    });
   }
+
+  const handleDayClick = (dayData) => {
+    if (dayData && dayData.hasData) {
+      // Navigate to analysis page with date filter
+      router.push(`/analysis?date=${dayData.dateStr}`);
+    }
+  };
 
   return (
     <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
       <h3 className="text-lg font-semibold text-trading-text mb-4">
         Trading Calendar - {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
       </h3>
-      <div className="grid grid-cols-7 gap-2 text-sm">
+      <div className="grid grid-cols-7 gap-1 text-sm">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
           <div key={day} className="text-center text-trading-text-muted font-medium py-2">
             {day}
@@ -133,18 +153,41 @@ function TradingCalendar({ trades }) {
         {days.map((day, index) => (
           <div
             key={index}
+            onClick={() => handleDayClick(day)}
             className={`
-              aspect-square flex items-center justify-center text-xs rounded-lg
+              aspect-square flex flex-col items-center justify-center text-xs rounded-lg p-1
               ${!day ? 'invisible' : ''}
-              ${day && day.pnl > 0 ? 'bg-trading-green/20 text-trading-green' : 
-                day && day.pnl < 0 ? 'bg-trading-red/20 text-trading-red' :
-                day && day.pnl === 0 && dailyPL[day.dateStr] !== undefined ? 'bg-trading-gray/20 text-trading-text-muted' :
+              ${day && day.hasData ? 'cursor-pointer hover:scale-105 transform transition-all duration-200' : ''}
+              ${day && day.pnl > 0 ? 'bg-trading-green/20 text-trading-green border border-trading-green/30 hover:bg-trading-green/30' : 
+                day && day.pnl < 0 ? 'bg-trading-red/20 text-trading-red border border-trading-red/30 hover:bg-trading-red/30' :
+                day && day.hasData ? 'bg-trading-gray/20 text-trading-text-muted border border-trading-gray/30 hover:bg-trading-gray/30' :
                 'bg-trading-card/10 text-trading-text-muted'}
             `}
+            title={day && day.hasData ? `${day.trades} trades, ${day.pnl.toLocaleString()}` : ''}
           >
-            {day && day.day}
+            {day && (
+              <>
+                <div className="font-medium">{day.day}</div>
+                {day.hasData && (
+                  <>
+                    <div className="text-xs font-bold">
+                      ${Math.abs(day.pnl) >= 1000 ? 
+                        `${(day.pnl / 1000).toFixed(1)}k` : 
+                        day.pnl.toFixed(0)
+                      }
+                    </div>
+                    <div className="text-xs opacity-75">
+                      {day.trades}T
+                    </div>
+                  </>
+                )}
+              </>
+            )}
           </div>
         ))}
+      </div>
+      <div className="mt-4 text-xs text-trading-text-muted text-center">
+        Click on trading days to view detailed analysis
       </div>
     </div>
   );
