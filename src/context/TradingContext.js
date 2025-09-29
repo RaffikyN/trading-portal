@@ -1,5 +1,8 @@
-const setCurrentCash = (amount) => {
-    dispatch({ type: 'SET_CURRENT_CASH', payload: parseFloat(amount) });
+  const setCurrentCash = (amount) => {
+    const parsedAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    const finalAmount = isNaN(parsedAmount) ? 0 : parsedAmount;
+    console.log('Setting current cash to:', finalAmount); // Debug log
+    dispatch({ type: 'SET_CURRENT_CASH', payload: finalAmount });
   };
 
   const addExpense = (expense) => {
@@ -218,7 +221,13 @@ function tradingReducer(state, action) {
       const localData = action.payload;
       newState = {
         ...state,
-        ...localData,
+        trades: localData.trades || [],
+        accounts: localData.accounts || {},
+        withdrawals: localData.withdrawals || [],
+        monthlyGoals: localData.monthlyGoals || {},
+        expenses: localData.expenses || [],
+        incomes: localData.incomes || [],
+        currentCash: localData.currentCash || 0,
         loading: false,
         error: null
       };

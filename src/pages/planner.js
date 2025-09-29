@@ -35,6 +35,7 @@ const INCOME_CATEGORIES = [
 function CashCalculator({ calculateCashFlow, currentCash, setCurrentCash }) {
   const [showCalculator, setShowCalculator] = useState(false);
   const [tempCash, setTempCash] = useState(currentCash.toString());
+  const [justUpdated, setJustUpdated] = useState(false);
 
   // Update tempCash when currentCash changes
   React.useEffect(() => {
@@ -47,8 +48,11 @@ function CashCalculator({ calculateCashFlow, currentCash, setCurrentCash }) {
 
   const handleUpdateCash = () => {
     const amount = parseFloat(tempCash) || 0;
+    console.log('Updating cash to:', amount, 'from tempCash:', tempCash); // Debug log
     setCurrentCash(amount);
     setShowCalculator(false);
+    setJustUpdated(true);
+    setTimeout(() => setJustUpdated(false), 2000);
   };
 
   const handleCancel = () => {
@@ -130,9 +134,14 @@ function CashCalculator({ calculateCashFlow, currentCash, setCurrentCash }) {
       </div>
 
       <div className="mt-4 text-center">
-        <div className="text-2xl font-bold text-trading-text">
+        <div className={`text-2xl font-bold text-trading-text transition-all ${
+          justUpdated ? 'scale-110 text-trading-green' : ''
+        }`}>
           Current Cash: ${currentCash.toLocaleString()}
         </div>
+        {justUpdated && (
+          <div className="text-sm text-trading-green mt-1">✓ Updated!</div>
+        )}
       </div>
     </div>
   );
