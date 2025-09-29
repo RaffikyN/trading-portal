@@ -1,7 +1,7 @@
 import React from 'react';
 import Layout from '../components/Layout';
 import { useTrading } from '../context/TradingContext';
-import { TrendingUp, TrendingDown, Users, ArrowDownLeft, Target, Calendar } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, ArrowDownLeft, Target } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
 
 function StatCard({ title, value, subtitle, icon: Icon, trend }) {
@@ -12,11 +12,15 @@ function StatCard({ title, value, subtitle, icon: Icon, trend }) {
           <p className="text-trading-text-muted text-sm font-medium">{title}</p>
           <p className="text-2xl font-bold text-trading-text mt-1">{value}</p>
           {subtitle && (
-            <p className={`text-sm mt-1 ${
-              trend === 'up' ? 'text-trading-green' : 
-              trend === 'down' ? 'text-trading-red' : 
-              'text-trading-text-muted'
-            }`}>
+            <p
+              className={`text-sm mt-1 ${
+                trend === 'up'
+                  ? 'text-trading-green'
+                  : trend === 'down'
+                  ? 'text-trading-red'
+                  : 'text-trading-text-muted'
+              }`}
+            >
               {subtitle}
             </p>
           )}
@@ -44,12 +48,12 @@ function PerformanceChart({ trades }) {
   let cumulativePL = 0;
   const chartData = Object.keys(dailyData)
     .sort()
-    .map(date => {
+    .map((date) => {
       cumulativePL += dailyData[date];
       return {
         date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         pnl: cumulativePL,
-        daily: dailyData[date]
+        daily: dailyData[date],
       };
     });
 
@@ -60,20 +64,16 @@ function PerformanceChart({ trades }) {
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={chartData}>
             <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis 
-              dataKey="date" 
-              stroke="#9ca3af"
-              fontSize={12}
-            />
-            <YAxis 
+            <XAxis dataKey="date" stroke="#9ca3af" fontSize={12} />
+            <YAxis
               stroke="#9ca3af"
               fontSize={12}
               tickFormatter={(value) => `$${value.toLocaleString()}`}
             />
-            <Line 
-              type="monotone" 
-              dataKey="pnl" 
-              stroke="#ec4899" 
+            <Line
+              type="monotone"
+              dataKey="pnl"
+              stroke="#ec4899"
               strokeWidth={2}
               dot={{ fill: '#ec4899', strokeWidth: 2, r: 4 }}
             />
@@ -105,12 +105,12 @@ function TradingCalendar({ trades }) {
   const startingDayOfWeek = firstDay.getDay();
 
   const days = [];
-  
+
   // Add empty cells for days before the first day of the month
   for (let i = 0; i < startingDayOfWeek; i++) {
     days.push(null);
   }
-  
+
   // Add days of the month
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -124,7 +124,7 @@ function TradingCalendar({ trades }) {
         Trading Calendar - {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
       </h3>
       <div className="grid grid-cols-7 gap-2 text-sm">
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
+        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map((day) => (
           <div key={day} className="text-center text-trading-text-muted font-medium py-2">
             {day}
           </div>
@@ -135,21 +135,28 @@ function TradingCalendar({ trades }) {
             className={`
               aspect-square flex items-center justify-center text-xs rounded-lg
               ${!day ? 'invisible' : ''}
-              ${day && day.pnl > 0 ? 'bg-trading-green/20 text-trading-green' : 
-                day && day.pnl < 0 ? 'bg-trading-red/20 text-trading-red' :
-                day && day.pnl === 0 && dailyPL[day.dateStr] !== undefined ? 'bg-trading-gray/20 text-trading-text-muted' :
-                'bg-trading-card/10 text-trading-text-muted'}
+              ${day && day.pnl > 0 ? 'bg-trading-green/20' : ''}
+              ${day && day.pnl < 0 ? 'bg-trading-red/20' : ''}
+              ${day && day.pnl === 0 && dailyPL[day?.dateStr] !== undefined ? 'bg-trading-gray/20' : ''}
+              ${!day ? '' : 'bg-trading-card/10'}
             `}
           >
-            {day && day.day}
-+   {day && (
-+     <>
-+       <span className="font-bold">{day.day}</span>
-+       <span className="text-[10px]">
-+         {day.pnl >= 0 ? '+' : ''}${day.pnl.toLocaleString()}
-+       </span>
-+     </>
-+   )}
+            {day && (
+              <div className="flex flex-col items-center">
+                <span className="font-bold">{day.day}</span>
+                <span
+                  className={`text-[10px] font-medium ${
+                    day.pnl > 0
+                      ? 'text-trading-green'
+                      : day.pnl < 0
+                      ? 'text-trading-red'
+                      : 'text-trading-text-muted'
+                  }`}
+                >
+                  {day.pnl >= 0 ? '+' : ''}${day.pnl.toLocaleString()}
+                </span>
+              </div>
+            )}
           </div>
         ))}
       </div>
@@ -164,7 +171,7 @@ function WeeklyStats({ trades }) {
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);
 
-  const thisWeekTrades = trades.filter(trade => {
+  const thisWeekTrades = trades.filter((trade) => {
     const tradeDate = new Date(trade.date);
     return tradeDate >= weekStart && tradeDate <= weekEnd;
   });
@@ -188,9 +195,15 @@ function WeeklyStats({ trades }) {
         </div>
         <div className="flex justify-between items-center">
           <span className="text-trading-text-muted">Avg per Trade</span>
-          <span className={`font-semibold ${
-            weeklyTrades > 0 ? (weeklyPL / weeklyTrades >= 0 ? 'text-trading-green' : 'text-trading-red') : 'text-trading-text-muted'
-          }`}>
+          <span
+            className={`font-semibold ${
+              weeklyTrades > 0
+                ? weeklyPL / weeklyTrades >= 0
+                  ? 'text-trading-green'
+                  : 'text-trading-red'
+                : 'text-trading-text-muted'
+            }`}
+          >
             {weeklyTrades > 0 ? `$${(weeklyPL / weeklyTrades).toLocaleString()}` : '$0'}
           </span>
         </div>
@@ -218,7 +231,11 @@ export default function Dashboard() {
           <StatCard
             title="Total Portfolio P&L"
             value={`$${totalPL.toLocaleString()}`}
-            subtitle={totalPL >= 0 ? '+' + ((totalPL / 100000) * 100).toFixed(2) + '%' : ((totalPL / 100000) * 100).toFixed(2) + '%'}
+            subtitle={
+              totalPL >= 0
+                ? '+' + ((totalPL / 100000) * 100).toFixed(2) + '%'
+                : ((totalPL / 100000) * 100).toFixed(2) + '%'
+            }
             icon={totalPL >= 0 ? TrendingUp : TrendingDown}
             trend={totalPL >= 0 ? 'up' : 'down'}
           />
@@ -237,7 +254,7 @@ export default function Dashboard() {
           <StatCard
             title="Win Rate"
             value={`${winRate.toFixed(1)}%`}
-            subtitle={`${trades.filter(t => t.profit > 0).length} of ${trades.length} trades`}
+            subtitle={`${trades.filter((t) => t.profit > 0).length} of ${trades.length} trades`}
             icon={Target}
             trend={winRate >= 50 ? 'up' : 'down'}
           />
@@ -249,10 +266,10 @@ export default function Dashboard() {
           <TradingCalendar trades={trades} />
         </div>
 
-        {/* Weekly Stats */}
+        {/* Weekly Stats and Quick Actions */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <WeeklyStats trades={trades} />
-          
+
           <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-trading-text mb-4">Quick Actions</h3>
             <div className="space-y-3">
@@ -277,9 +294,11 @@ export default function Dashboard() {
                     <p className="text-trading-text text-sm">{trade.symbol}</p>
                     <p className="text-trading-text-muted text-xs">{trade.date}</p>
                   </div>
-                  <span className={`text-sm font-medium ${
-                    trade.profit >= 0 ? 'text-trading-green' : 'text-trading-red'
-                  }`}>
+                  <span
+                    className={`text-sm font-medium ${
+                      trade.profit >= 0 ? 'text-trading-green' : 'text-trading-red'
+                    }`}
+                  >
                     ${trade.profit.toLocaleString()}
                   </span>
                 </div>
