@@ -1,4 +1,4 @@
-  const setCurrentCash = (amount) => {
+const setCurrentCash = (amount) => {
     const parsedAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     const finalAmount = isNaN(parsedAmount) ? 0 : parsedAmount;
     console.log('Setting current cash to:', finalAmount); // Debug log
