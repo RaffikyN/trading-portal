@@ -277,8 +277,8 @@ export function TradingProvider({ children }) {
     }
   }, []);
 
-  // Load user data from Supabase
-  const loadUserData = async (userId) => {
+  // Load user data from Supabase with retry logic
+  const loadUserData = async (userId, retryCount = 0) => {
     if (!supabase) {
       console.warn('Supabase not available for loading data');
       return;
@@ -287,48 +287,56 @@ export function TradingProvider({ children }) {
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
 
-      // Set a timeout to prevent infinite loading
+      // Reduced timeout to 5 seconds (was 15)
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Request timeout')), 15000)
+        setTimeout(() => reject(new Error('Connection timeout - switching to offline mode')), 5000)
       );
 
       // Create user record if it doesn't exist
-      const { data: existingUser } = await Promise.race([
-        supabase
-          .from('users')
-          .select('id')
-          .eq('id', userId)
-          .single(),
-        timeoutPromise
-      ]);
-
-      if (!existingUser) {
-        await Promise.race([
+      try {
+        const { data: existingUser, error: userError } = await Promise.race([
           supabase
             .from('users')
-            .insert({ id: userId, email: user?.email || '' }),
+            .select('id')
+            .eq('id', userId)
+            .single(),
           timeoutPromise
         ]);
+
+        if (userError && userError.code !== 'PGRST116') { // PGRST116 = row not found
+          throw userError;
+        }
+
+        if (!existingUser) {
+          await Promise.race([
+            supabase
+              .from('users')
+              .insert({ id: userId, email: user?.email || '' }),
+            timeoutPromise
+          ]);
+        }
+      } catch (userCreationError) {
+        console.warn('User creation failed, continuing with data load:', userCreationError);
       }
 
-      // Load all user data with timeout
+      // Load all user data with shorter timeout
       const [
         { data: trades, error: tradesError },
         { data: withdrawals, error: withdrawalsError },
         { data: goals, error: goalsError }
       ] = await Promise.race([
         Promise.all([
-          supabase.from('trades').select('*').eq('user_id', userId),
-          supabase.from('withdrawals').select('*').eq('user_id', userId),
-          supabase.from('monthly_goals').select('*').eq('user_id', userId)
+          supabase.from('trades').select('*').eq('user_id', userId).limit(1000),
+          supabase.from('withdrawals').select('*').eq('user_id', userId).limit(100),
+          supabase.from('monthly_goals').select('*').eq('user_id', userId).limit(50)
         ]),
         timeoutPromise
       ]);
 
-      // Check for errors
-      if (tradesError) console.error('Error loading trades:', tradesError);
-      if (withdrawalsError) console.error('Error loading withdrawals:', withdrawalsError);
-      if (goalsError) console.error('Error loading goals:', goalsError);
+      // Check for errors but don't fail completely
+      if (tradesError) console.warn('Error loading trades:', tradesError);
+      if (withdrawalsError) console.warn('Error loading withdrawals:', withdrawalsError);
+      if (goalsError) console.warn('Error loading goals:', goalsError);
 
       // Always dispatch data (even if empty) to clear loading state
       dispatch({ type: 'LOAD_TRADES', payload: trades || [] });
@@ -339,13 +347,22 @@ export function TradingProvider({ children }) {
 
     } catch (error) {
       console.error('Error loading user data:', error);
-      // Fall back to offline mode if Supabase fails
+      
+      // Retry once before falling back
+      if (retryCount === 0) {
+        console.log('Retrying data load...');
+        setTimeout(() => loadUserData(userId, 1), 1000);
+        return;
+      }
+      
+      // Fall back to offline mode if retries fail
+      console.warn('Switching to offline mode due to connection issues');
       setOfflineMode(true);
       const localData = loadLocalStorageData();
       if (localData) {
         dispatch({ type: 'LOAD_LOCALSTORAGE', payload: localData });
       }
-      dispatch({ type: 'SET_ERROR', payload: error.message || 'Failed to load data' });
+      dispatch({ type: 'SET_ERROR', payload: 'Connection timeout - using offline mode' });
       dispatch({ type: 'SET_LOADING', payload: false });
     }
   };
@@ -553,6 +570,41 @@ export function TradingProvider({ children }) {
   const winningTrades = state.trades.filter(t => t.profit > 0);
   const winRate = state.trades.length > 0 ? (winningTrades.length / state.trades.length) * 100 : 0;
   const activeAccounts = Object.values(state.accounts).filter(acc => acc.status === 'Active').length;
+
+  // Add connection status checker
+  const checkConnection = async () => {
+    if (!supabase || offlineMode) return false;
+    
+    try {
+      await Promise.race([
+        supabase.from('users').select('id').limit(1),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Connection test timeout')), 3000))
+      ]);
+      return true;
+    } catch (error) {
+      console.warn('Connection check failed:', error);
+      return false;
+    }
+  };
+
+  // Periodically check connection and switch modes
+  useEffect(() => {
+    if (!supabase) return;
+
+    const connectionChecker = setInterval(async () => {
+      if (offlineMode) {
+        // Try to reconnect if offline
+        const isOnline = await checkConnection();
+        if (isOnline) {
+          console.log('Connection restored - switching back to online mode');
+          setOfflineMode(false);
+          dispatch({ type: 'SET_ERROR', payload: null });
+        }
+      }
+    }, 30000); // Check every 30 seconds
+
+    return () => clearInterval(connectionChecker);
+  }, [offlineMode]);
 
   const value = {
     ...state,

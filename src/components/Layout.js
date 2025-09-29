@@ -128,18 +128,26 @@ export default function Layout({ children }) {
         {/* Offline mode banner */}
         {offlineMode && (
           <div className="bg-trading-pink/20 border-b border-trading-pink/30 px-4 py-2">
-            <p className="text-trading-pink text-sm text-center">
-              📱 Offline Mode - Using local storage (data saved locally)
-            </p>
+            <div className="flex items-center justify-between">
+              <p className="text-trading-pink text-sm">
+                📱 Offline Mode - Data saved locally only
+              </p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="text-trading-pink hover:text-trading-pink/70 text-xs underline"
+              >
+                Retry Connection
+              </button>
+            </div>
           </div>
         )}
         
         {/* Error banner */}
-        {error && (
+        {error && !error.includes('offline mode') && (
           <div className="bg-trading-red/20 border-b border-trading-red/30 px-4 py-3">
             <div className="flex items-center justify-between">
               <p className="text-trading-red text-sm">
-                Error: {error}
+                {error}
               </p>
               <button 
                 onClick={handleEmergencyReset}
