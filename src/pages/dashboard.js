@@ -142,6 +142,14 @@ function TradingCalendar({ trades }) {
             `}
           >
             {day && day.day}
++   {day && (
++     <>
++       <span className="font-bold">{day.day}</span>
++       <span className="text-[10px]">
++         {day.pnl >= 0 ? '+' : ''}${day.pnl.toLocaleString()}
++       </span>
++     </>
++   )}
           </div>
         ))}
       </div>
