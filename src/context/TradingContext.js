@@ -371,10 +371,15 @@ export function TradingProvider({ children }) {
           setAuthLoading(false);
           
           if (session?.user) {
-            await loadUserData(session.user.id);
-          } else {
-            dispatch({ type: 'CLEAR_DATA' });
+            // Only load from Supabase if we don't have local data
+            // This prevents overwriting local data on sign in
+            if (state.trades.length === 0 && !offlineMode) {
+              await loadUserData(session.user.id);
+            } else {
+              console.log('Using existing local data, skipping Supabase load');
+            }
           }
+          // Don't clear data on sign out - removed the else clause
         }
       );
 
