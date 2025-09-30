@@ -1,224 +1,686 @@
-import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
-import { createClient } from '@supabase/supabase-js';
+const setCurrentCash = (amount) => {
+    const parsedAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    const finalAmount = isNaN(parsedAmount) ? 0 : parsedAmount;
+    console.log('Setting current cash to:', finalAmount); // Debug log
+    dispatch({ type: 'SET_CURRENT_CASH', payload: finalAmount });
+  };
+
+  const addExpense = (expense) => {
+    const newExpense = {
+      ...expense,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString()
+    };
+    dispatch({ type: 'ADD_EXPENSE', payload: newExpense });
+  };
+
+  const updateExpense = (expense) => {
+    dispatch({ type: 'UPDATE_EXPENSE', payload: expense });
+  };
+
+  const deleteExpense = (expenseId) => {
+    dispatch({ type: 'DELETE_EXPENSE', payload: expenseId });
+  };
+
+  const addIncome = (income) => {
+    const newIncome = {
+      ...income,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString()
+    };
+    dispatch({ type: 'ADD_INCOME', payload: newIncome });
+  };
+
+  const updateIncome = (income) => {
+    dispatch({ type: 'UPDATE_INCOME', payload: income });
+  };
+
+  const deleteIncome = (incomeId) => {
+    dispatch({ type: 'DELETE_INCOME', payload: incomeId });
+  };import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
+import { supabase } from '../../lib/supabase';
 
 const TradingContext = createContext();
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-);
+// Version: 1.1.0 - Force rebuild
+// Fallback to localStorage if Supabase fails
+const loadLocalStorageData = () => {
+  if (typeof window === 'undefined') return null;
+  
+  try {
+    const saved = localStorage.getItem('tradingPortalData');
+    return saved ? JSON.parse(saved) : null;
+  } catch (error) {
+    console.error('Failed to load localStorage data:', error);
+    return null;
+  }
+};
 
-// ---------------- Reducer ----------------
+const saveToLocalStorage = (state) => {
+  if (typeof window === 'undefined') return;
+  
+  try {
+    const dataToSave = {
+      trades: state.trades,
+      accounts: state.accounts,
+      withdrawals: state.withdrawals,
+      monthlyGoals: state.monthlyGoals,
+      expenses: state.expenses,
+      incomes: state.incomes,
+      currentCash: state.currentCash,
+    };
+    localStorage.setItem('tradingPortalData', JSON.stringify(dataToSave));
+  } catch (error) {
+    console.error('Failed to save to localStorage:', error);
+  }
+};
+
+const initialState = {
+  trades: [],
+  accounts: {},
+  withdrawals: [],
+  monthlyGoals: {},
+  // Personal Finance Data
+  expenses: [],
+  incomes: [],
+  currentCash: 0,
+  loading: false,
+  error: null,
+};
+
 function tradingReducer(state, action) {
+  let newState;
+  
   switch (action.type) {
-    case 'SET_CURRENT_CASH':
-      return { ...state, currentCash: action.payload };
+    case 'SET_LOADING':
+      return { ...state, loading: action.payload };
+    
+    case 'SET_ERROR':
+      return { ...state, error: action.payload, loading: false };
+    
+    case 'LOAD_TRADES':
+      const trades = action.payload;
+      const accounts = {};
+      
+      // Build accounts from trades
+      trades.forEach(trade => {
+        const accountName = trade.account_name || trade.account;
+        if (!accounts[accountName]) {
+          accounts[accountName] = {
+            id: accountName,
+            startingBalance: 100000,
+            currentBalance: 100000,
+            totalPL: 0,
+            status: 'Active'
+          };
+        }
+        accounts[accountName].totalPL += trade.profit;
+        accounts[accountName].currentBalance = 
+          accounts[accountName].startingBalance + accounts[accountName].totalPL;
+      });
 
+      newState = {
+        ...state,
+        trades: trades.map(trade => ({
+          id: trade.trade_id || trade.id,
+          account: trade.account_name || trade.account,
+          date: trade.trade_date || trade.date,
+          symbol: trade.symbol,
+          side: trade.side,
+          quantity: trade.quantity,
+          price: trade.price,
+          points: trade.points,
+          profit: trade.profit,
+          timestamp: new Date(trade.trade_timestamp || trade.timestamp)
+        })),
+        accounts,
+        loading: false,
+        error: null
+      };
+      break;
+    
+    case 'LOAD_WITHDRAWALS':
+      newState = {
+        ...state,
+        withdrawals: action.payload.map(w => ({
+          id: w.id,
+          account: w.account_name || w.account,
+          amount: w.amount,
+          date: w.withdrawal_date || w.date,
+          description: w.description
+        }))
+      };
+      break;
+    
+    case 'LOAD_GOALS':
+      const goals = {};
+      action.payload.forEach(goal => {
+        goals[goal.month] = goal.goal_amount || goal.amount;
+      });
+      newState = {
+        ...state,
+        monthlyGoals: goals
+      };
+      break;
+    
+    case 'IMPORT_TRADES':
+      const newTrades = action.payload;
+      const updatedTrades = [...state.trades, ...newTrades];
+      const updatedAccounts = { ...state.accounts };
+      
+      // Update accounts based on trades
+      newTrades.forEach(trade => {
+        if (!updatedAccounts[trade.account]) {
+          updatedAccounts[trade.account] = {
+            id: trade.account,
+            startingBalance: 100000,
+            currentBalance: 100000,
+            totalPL: 0,
+            status: 'Active'
+          };
+        }
+        updatedAccounts[trade.account].totalPL += trade.profit;
+        updatedAccounts[trade.account].currentBalance = 
+          updatedAccounts[trade.account].startingBalance + updatedAccounts[trade.account].totalPL;
+      });
+      
+      newState = { 
+        ...state, 
+        trades: updatedTrades, 
+        accounts: updatedAccounts, 
+        loading: false,
+        error: null 
+      };
+      break;
+    
+    case 'ADD_WITHDRAWAL':
+      const withdrawal = action.payload;
+      const updatedAccountsWithdrawal = { ...state.accounts };
+      
+      if (updatedAccountsWithdrawal[withdrawal.account]) {
+        updatedAccountsWithdrawal[withdrawal.account].currentBalance -= withdrawal.amount;
+      }
+      
+      newState = {
+        ...state,
+        withdrawals: [...state.withdrawals, withdrawal],
+        accounts: updatedAccountsWithdrawal
+      };
+      break;
+    
+    case 'SET_MONTHLY_GOAL':
+      newState = {
+        ...state,
+        monthlyGoals: {
+          ...state.monthlyGoals,
+          [action.payload.month]: action.payload.amount
+        }
+      };
+      break;
+    
+    case 'LOAD_LOCALSTORAGE':
+      const localData = action.payload;
+      newState = {
+        ...state,
+        trades: localData.trades || [],
+        accounts: localData.accounts || {},
+        withdrawals: localData.withdrawals || [],
+        monthlyGoals: localData.monthlyGoals || {},
+        expenses: localData.expenses || [],
+        incomes: localData.incomes || [],
+        currentCash: localData.currentCash || 0,
+        loading: false,
+        error: null
+      };
+      break;
+    
     case 'ADD_EXPENSE':
-      return { ...state, expenses: [...state.expenses, action.payload] };
-
+      newState = {
+        ...state,
+        expenses: [...state.expenses, action.payload]
+      };
+      break;
+    
     case 'UPDATE_EXPENSE':
-      return {
+      newState = {
         ...state,
-        expenses: state.expenses.map((exp) =>
+        expenses: state.expenses.map(exp => 
           exp.id === action.payload.id ? action.payload : exp
-        ),
+        )
       };
-
+      break;
+    
     case 'DELETE_EXPENSE':
-      return {
+      newState = {
         ...state,
-        expenses: state.expenses.filter((exp) => exp.id !== action.payload),
+        expenses: state.expenses.filter(exp => exp.id !== action.payload)
       };
-
+      break;
+    
     case 'ADD_INCOME':
-      return { ...state, incomes: [...state.incomes, action.payload] };
-
+      newState = {
+        ...state,
+        incomes: [...state.incomes, action.payload]
+      };
+      break;
+    
     case 'UPDATE_INCOME':
-      return {
+      newState = {
         ...state,
-        incomes: state.incomes.map((inc) =>
+        incomes: state.incomes.map(inc => 
           inc.id === action.payload.id ? action.payload : inc
-        ),
+        )
       };
-
+      break;
+    
     case 'DELETE_INCOME':
-      return {
+      newState = {
         ...state,
-        incomes: state.incomes.filter((inc) => inc.id !== action.payload),
+        incomes: state.incomes.filter(inc => inc.id !== action.payload)
       };
-
+      break;
+    
+    case 'SET_CURRENT_CASH':
+      newState = {
+        ...state,
+        currentCash: action.payload
+      };
+      break;
+    
+    case 'CLEAR_DATA':
+      newState = {
+        trades: [],
+        accounts: {},
+        withdrawals: [],
+        monthlyGoals: {},
+        expenses: [],
+        incomes: [],
+        currentCash: 0,
+        loading: false,
+        error: null,
+      };
+      break;
+    
     default:
       return state;
   }
+
+  // Save to localStorage for backup
+  if (action.type !== 'SET_LOADING' && action.type !== 'SET_ERROR') {
+    saveToLocalStorage(newState);
+  }
+  
+  return newState;
 }
 
-const initialState = {
-  currentCash: 0,
-  expenses: [],
-  incomes: [],
-};
-
-// ---------------- Provider ----------------
 export function TradingProvider({ children }) {
-  const loadInitialState = () => {
-    if (typeof window === 'undefined') return initialState;
-    try {
-      const saved = localStorage.getItem('tradingState');
-      return saved ? JSON.parse(saved) : initialState;
-    } catch (err) {
-      console.error('Error loading state from localStorage:', err);
-      return initialState;
-    }
-  };
-
-  const [state, dispatch] = useReducer(tradingReducer, initialState, loadInitialState);
+  const [state, dispatch] = useReducer(tradingReducer, initialState);
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [offlineMode, setOfflineMode] = useState(false);
 
-  // --- Persist state locally ---
+  // Auth state listener with fallback
   useEffect(() => {
-    try {
-      localStorage.setItem('tradingState', JSON.stringify(state));
-    } catch (err) {
-      console.error('Error saving state to localStorage:', err);
-    }
-  }, [state]);
-
-  // --- Finance functions with Supabase sync ---
-  const setCurrentCash = async (amount) => {
-    const parsedAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    const finalAmount = isNaN(parsedAmount) ? 0 : parsedAmount;
-
-    try {
-      if (!offlineMode && user?.id && supabase) {
-        const { error } = await supabase
-          .from('cash_balances')
-          .upsert({ user_id: user.id, amount: finalAmount });
-        if (error) throw error;
-      }
-    } catch (err) {
-      console.warn('Supabase save failed, keeping local only:', err);
+    if (!supabase) {
+      console.warn('Supabase not available - using offline mode');
       setOfflineMode(true);
+      setAuthLoading(false);
+      setUser({ email: 'offline@local' }); // Set offline user
+      
+      // Load from localStorage as fallback
+      const localData = loadLocalStorageData();
+      if (localData) {
+        dispatch({ type: 'LOAD_LOCALSTORAGE', payload: localData });
+      }
+      return;
     }
 
-    dispatch({ type: 'SET_CURRENT_CASH', payload: finalAmount });
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session }, error }) => {
+      if (error) {
+        console.error('Auth session error:', error);
+        setOfflineMode(true);
+        setUser({ email: 'offline@local' });
+        const localData = loadLocalStorageData();
+        if (localData) {
+          dispatch({ type: 'LOAD_LOCALSTORAGE', payload: localData });
+        }
+      } else {
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          loadUserData(session.user.id);
+        }
+      }
+      setAuthLoading(false);
+    }).catch((error) => {
+      console.error('Failed to get session:', error);
+      setOfflineMode(true);
+      setAuthLoading(false);
+      setUser({ email: 'offline@local' });
+      const localData = loadLocalStorageData();
+      if (localData) {
+        dispatch({ type: 'LOAD_LOCALSTORAGE', payload: localData });
+      }
+    });
+
+    // Listen for auth changes
+    try {
+      const { data: { subscription } } = supabase.auth.onAuthStateChange(
+        async (event, session) => {
+          setUser(session?.user ?? null);
+          setAuthLoading(false);
+          
+          if (session?.user) {
+            // Only load from Supabase if we don't have local data
+            // This prevents overwriting local data on sign in
+            if (state.trades.length === 0 && !offlineMode) {
+              await loadUserData(session.user.id);
+            } else {
+              console.log('Using existing local data, skipping Supabase load');
+            }
+          }
+          // Don't clear data on sign out - removed the else clause
+        }
+      );
+
+      return () => subscription?.unsubscribe();
+    } catch (error) {
+      console.error('Failed to set up auth listener:', error);
+      setOfflineMode(true);
+      setUser({ email: 'offline@local' });
+    }
+  }, []);
+
+  // Load user data from Supabase with retry logic
+  const loadUserData = async (userId, retryCount = 0) => {
+    if (!supabase) {
+      console.warn('Supabase not available for loading data');
+      return;
+    }
+
+    // Don't try to load from Supabase if already in offline mode
+    if (offlineMode && retryCount === 0) {
+      console.log('Already in offline mode, skipping Supabase load');
+      return;
+    }
+
+    try {
+      dispatch({ type: 'SET_LOADING', payload: true });
+
+      // Increased timeout to 10 seconds for initial load
+      const timeoutMs = retryCount === 0 ? 10000 : 5000;
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout - switching to offline mode')), timeoutMs)
+      );
+
+      // Create user record if it doesn't exist (only on first try)
+      if (retryCount === 0) {
+        try {
+          const { data: existingUser, error: userError } = await Promise.race([
+            supabase
+              .from('users')
+              .select('id')
+              .eq('id', userId)
+              .single(),
+            timeoutPromise
+          ]);
+
+          if (userError && userError.code !== 'PGRST116') {
+            throw userError;
+          }
+
+          if (!existingUser) {
+            await Promise.race([
+              supabase
+                .from('users')
+                .insert({ id: userId, email: user?.email || '' }),
+              timeoutPromise
+            ]);
+          }
+        } catch (userCreationError) {
+          console.warn('User creation failed, continuing with data load:', userCreationError);
+        }
+      }
+
+      // Load all user data with timeout
+      const [
+        { data: trades, error: tradesError },
+        { data: withdrawals, error: withdrawalsError },
+        { data: goals, error: goalsError }
+      ] = await Promise.race([
+        Promise.all([
+          supabase.from('trades').select('*').eq('user_id', userId).limit(1000),
+          supabase.from('withdrawals').select('*').eq('user_id', userId).limit(100),
+          supabase.from('monthly_goals').select('*').eq('user_id', userId).limit(50)
+        ]),
+        timeoutPromise
+      ]);
+
+      // Check for errors but don't fail completely
+      if (tradesError) console.warn('Error loading trades:', tradesError);
+      if (withdrawalsError) console.warn('Error loading withdrawals:', withdrawalsError);
+      if (goalsError) console.warn('Error loading goals:', goalsError);
+
+      // Always dispatch data (even if empty) to clear loading state
+      dispatch({ type: 'LOAD_TRADES', payload: trades || [] });
+      dispatch({ type: 'LOAD_WITHDRAWALS', payload: withdrawals || [] });
+      dispatch({ type: 'LOAD_GOALS', payload: goals || [] });
+
+      dispatch({ type: 'SET_LOADING', payload: false });
+      
+      // Clear error on successful load
+      dispatch({ type: 'SET_ERROR', payload: null });
+
+    } catch (error) {
+      console.error('Error loading user data:', error);
+      
+      // Only retry once
+      if (retryCount === 0) {
+        console.log('Retrying data load once more...');
+        setTimeout(() => loadUserData(userId, 1), 2000);
+        return;
+      }
+      
+      // After retry fails, switch to offline mode
+      console.warn('Switching to offline mode - using local data');
+      setOfflineMode(true);
+      
+      // Load from localStorage as fallback
+      const localData = loadLocalStorageData();
+      if (localData) {
+        console.log('Loading data from localStorage backup');
+        dispatch({ type: 'LOAD_LOCALSTORAGE', payload: localData });
+      }
+      
+      dispatch({ type: 'SET_ERROR', payload: 'Using offline mode - data saved locally' });
+      dispatch({ type: 'SET_LOADING', payload: false });
+    }
   };
 
-  const addExpense = async (expense) => {
-    let newExpense = {
-      ...expense,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-    };
-
+  const importTrades = async (csvData) => {
+    dispatch({ type: 'SET_LOADING', payload: true });
+    
     try {
-      if (!offlineMode && user?.id && supabase) {
-        const { data, error } = await supabase
-          .from('expenses')
-          .insert({ user_id: user.id, ...newExpense })
-          .select()
-          .single();
-        if (error) throw error;
-        newExpense = { ...newExpense, id: data.id };
-      }
-    } catch (err) {
-      console.warn('Supabase save failed, keeping local only:', err);
-      setOfflineMode(true);
-    }
+      // Transform CSV data
+      const trades = csvData
+        .filter(row => row.profit && parseFloat(row.profit) !== 0)
+        .map((row, index) => ({
+          id: row.order_id || `trade_${Date.now()}_${index}`,
+          account: row.name || 'Default Account',
+          date: new Date(row.mov_time || Date.now()).toISOString().split('T')[0],
+          symbol: row.symbol || '',
+          side: parseFloat(row.mov_type || 0) > 0 ? 'Long' : 'Short',
+          quantity: Math.abs(parseFloat(row.exec_qty || 0)),
+          price: parseFloat(row.price_done || 0),
+          points: parseFloat(row.points || 0),
+          profit: parseFloat(row.profit || 0),
+          timestamp: new Date(row.mov_time || Date.now())
+        }));
 
-    dispatch({ type: 'ADD_EXPENSE', payload: newExpense });
+      // Try to save to Supabase if available
+      if (!offlineMode && user && supabase) {
+        try {
+          const supabaseTrades = trades.map(trade => ({
+            user_id: user.id,
+            trade_id: trade.id,
+            account_name: trade.account,
+            symbol: trade.symbol,
+            side: trade.side,
+            quantity: trade.quantity,
+            price: trade.price,
+            points: trade.points,
+            profit: trade.profit,
+            trade_date: trade.date,
+            trade_timestamp: trade.timestamp.toISOString()
+          }));
+
+          const { error } = await supabase
+            .from('trades')
+            .insert(supabaseTrades);
+
+          if (error) throw error;
+        } catch (error) {
+          console.warn('Failed to save to Supabase, using local storage:', error);
+          setOfflineMode(true);
+        }
+      }
+
+      // Always update local state
+      dispatch({ type: 'IMPORT_TRADES', payload: trades });
+      
+    } catch (error) {
+      console.error('Error importing trades:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to import trades' });
+    }
   };
 
-  const updateExpense = async (expense) => {
+  const addWithdrawal = async (withdrawal) => {
     try {
-      if (!offlineMode && user?.id && supabase) {
-        const { error } = await supabase
-          .from('expenses')
-          .update(expense)
-          .eq('id', expense.id);
-        if (error) throw error;
-      }
-    } catch (err) {
-      console.warn('Supabase update failed, local only:', err);
-      setOfflineMode(true);
-    }
+      const withdrawalData = {
+        id: Date.now().toString(),
+        account: withdrawal.account,
+        amount: withdrawal.amount,
+        date: withdrawal.date || new Date().toISOString().split('T')[0],
+        description: withdrawal.description || ''
+      };
 
-    dispatch({ type: 'UPDATE_EXPENSE', payload: expense });
+      // Try to save to Supabase if available and online
+      if (!offlineMode && user && user.id && supabase) {
+        try {
+          const supabaseWithdrawal = {
+            user_id: user.id,
+            account_name: withdrawal.account,
+            amount: withdrawal.amount,
+            withdrawal_date: withdrawal.date || new Date().toISOString().split('T')[0],
+            description: withdrawal.description || ''
+          };
+
+          const { data, error } = await supabase
+            .from('withdrawals')
+            .insert(supabaseWithdrawal)
+            .select()
+            .single();
+
+          if (error) throw error;
+          
+          withdrawalData.id = data.id;
+        } catch (error) {
+          console.warn('Failed to save withdrawal to Supabase, using local storage:', error);
+          setOfflineMode(true);
+        }
+      }
+
+      dispatch({ type: 'ADD_WITHDRAWAL', payload: withdrawalData });
+    } catch (error) {
+      console.error('Error adding withdrawal:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to add withdrawal' });
+    }
   };
 
-  const deleteExpense = async (id) => {
+  const setMonthlyGoal = async (month, amount) => {
     try {
-      if (!offlineMode && user?.id && supabase) {
-        const { error } = await supabase.from('expenses').delete().eq('id', id);
-        if (error) throw error;
-      }
-    } catch (err) {
-      console.warn('Supabase delete failed, local only:', err);
-      setOfflineMode(true);
-    }
+      // Try to save to Supabase if available and online
+      if (!offlineMode && user && user.id && supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('monthly_goals')
+            .upsert({
+              user_id: user.id,
+              month,
+              goal_amount: amount
+            });
 
-    dispatch({ type: 'DELETE_EXPENSE', payload: id });
+          if (error) throw error;
+        } catch (error) {
+          console.warn('Failed to save goal to Supabase, using local storage:', error);
+          setOfflineMode(true);
+        }
+      }
+
+      dispatch({ type: 'SET_MONTHLY_GOAL', payload: { month, amount } });
+    } catch (error) {
+      console.error('Error setting goal:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to set goal' });
+    }
   };
 
-  const addIncome = async (income) => {
-    let newIncome = {
-      ...income,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString(),
-    };
-
-    try {
-      if (!offlineMode && user?.id && supabase) {
-        const { data, error } = await supabase
-          .from('incomes')
-          .insert({ user_id: user.id, ...newIncome })
-          .select()
-          .single();
-        if (error) throw error;
-        newIncome = { ...newIncome, id: data.id };
-      }
-    } catch (err) {
-      console.warn('Supabase save failed, keeping local only:', err);
-      setOfflineMode(true);
+  const clearData = async () => {
+    if (!window.confirm('Are you sure you want to delete ALL data? This cannot be undone.')) {
+      return;
     }
-
-    dispatch({ type: 'ADD_INCOME', payload: newIncome });
+    
+    try {
+      // Clear local state
+      dispatch({ type: 'CLEAR_DATA' });
+      
+      // Clear localStorage
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem('tradingPortalData');
+      }
+      
+      console.log('All data cleared successfully');
+    } catch (error) {
+      console.error('Error clearing data:', error);
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to clear data' });
+    }
   };
 
-  const updateIncome = async (income) => {
+  const signOut = async () => {
     try {
-      if (!offlineMode && user?.id && supabase) {
-        const { error } = await supabase
-          .from('incomes')
-          .update(income)
-          .eq('id', income.id);
-        if (error) throw error;
+      dispatch({ type: 'SET_LOADING', payload: true });
+      dispatch({ type: 'SET_ERROR', payload: null });
+      
+      // Don't clear any data - keep everything in localStorage
+      // Just sign out from Supabase
+      setUser(null);
+      setOfflineMode(false);
+      
+      if (supabase) {
+        try {
+          const { error } = await supabase.auth.signOut();
+          if (error) {
+            console.error('Supabase sign out error:', error);
+          }
+        } catch (error) {
+          console.error('Supabase sign out failed:', error);
+        }
       }
-    } catch (err) {
-      console.warn('Supabase update failed, local only:', err);
-      setOfflineMode(true);
+      
+      dispatch({ type: 'SET_LOADING', payload: false });
+    } catch (error) {
+      console.error('Error signing out:', error);
+      dispatch({ type: 'SET_LOADING', payload: false });
     }
-
-    dispatch({ type: 'UPDATE_INCOME', payload: income });
   };
 
-  const deleteIncome = async (id) => {
-    try {
-      if (!offlineMode && user?.id && supabase) {
-        const { error } = await supabase.from('incomes').delete().eq('id', id);
-        if (error) throw error;
-      }
-    } catch (err) {
-      console.warn('Supabase delete failed, local only:', err);
-      setOfflineMode(true);
-    }
+  // Computed values
+  const totalPL = state.trades.reduce((sum, trade) => sum + trade.profit, 0);
+  const totalWithdrawals = state.withdrawals.reduce((sum, w) => sum + w.amount, 0);
+  const winningTrades = state.trades.filter(t => t.profit > 0);
+  const winRate = state.trades.length > 0 ? (winningTrades.length / state.trades.length) * 100 : 0;
+  const activeAccounts = Object.values(state.accounts).filter(acc => acc.status === 'Active').length;
 
-    dispatch({ type: 'DELETE_INCOME', payload: id });
-  };
-
-  // --- Derived calculations ---
+  // Personal Finance Calculations
   const calculateCashFlow = (period = 'month') => {
     const now = new Date();
     let startDate, endDate;
@@ -226,63 +688,107 @@ export function TradingProvider({ children }) {
     switch (period) {
       case 'day':
         startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        endDate = new Date(startDate);
-        endDate.setDate(endDate.getDate() + 1);
+        endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
         break;
       case 'week':
-        startDate = new Date(now);
-        startDate.setDate(now.getDate() - now.getDay());
-        endDate = new Date(startDate);
-        endDate.setDate(startDate.getDate() + 7);
+        startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+        endDate = new Date(startDate.getTime() + 7 * 24 * 60 * 60 * 1000);
         break;
       case 'month':
       default:
         startDate = new Date(now.getFullYear(), now.getMonth(), 1);
-        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 1);
+        endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0);
         break;
     }
 
-    const incomes = state.incomes.filter(
-      (i) => new Date(i.date) >= startDate && new Date(i.date) < endDate
-    );
-    const expenses = state.expenses.filter(
-      (e) => new Date(e.dueDate) >= startDate && new Date(e.dueDate) < endDate
-    );
+    // Calculate expenses in period
+    const periodExpenses = state.expenses
+      .filter(exp => {
+        const expenseDate = new Date(exp.dueDate);
+        return expenseDate >= startDate && expenseDate <= endDate;
+      })
+      .reduce((sum, exp) => sum + exp.amount, 0);
 
-    const totalIncome = incomes.reduce((sum, inc) => sum + inc.amount, 0);
-    const totalExpense = expenses.reduce((sum, exp) => sum + exp.amount, 0);
+    // Calculate income in period
+    const periodIncome = state.incomes
+      .filter(inc => {
+        const incomeDate = new Date(inc.date);
+        return incomeDate >= startDate && incomeDate <= endDate;
+      })
+      .reduce((sum, inc) => sum + inc.amount, 0);
 
-    const netCashFlow = totalIncome - totalExpense;
-    const projectedCash = state.currentCash + netCashFlow;
+    // Add trading withdrawals as income
+    const tradingIncome = state.withdrawals
+      .filter(w => {
+        const withdrawalDate = new Date(w.date);
+        return withdrawalDate >= startDate && withdrawalDate <= endDate;
+      })
+      .reduce((sum, w) => sum + w.amount, 0);
 
-    return { netCashFlow, projectedCash };
+    return {
+      income: periodIncome + tradingIncome,
+      expenses: periodExpenses,
+      netCashFlow: (periodIncome + tradingIncome) - periodExpenses,
+      projectedCash: state.currentCash + (periodIncome + tradingIncome) - periodExpenses
+    };
   };
 
   const calculateNetWorth = () => {
-    const totalIncome = state.incomes.reduce((sum, inc) => sum + inc.amount, 0);
-    const totalExpense = state.expenses.reduce((sum, exp) => sum + exp.amount, 0);
-    return state.currentCash + totalIncome - totalExpense;
+    const cashOnHand = state.currentCash;
+    const tradingAccountValue = Object.values(state.accounts).reduce((sum, acc) => sum + acc.currentBalance, 0);
+    const pendingWithdrawals = state.withdrawals.reduce((sum, w) => sum + w.amount, 0);
+    
+    return cashOnHand + tradingAccountValue - pendingWithdrawals;
   };
 
-  // --- Supabase auth ---
+  // Add connection status checker
+  const checkConnection = async () => {
+    if (!supabase || offlineMode) return false;
+    
+    try {
+      await Promise.race([
+        supabase.from('users').select('id').limit(1),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('Connection test timeout')), 3000))
+      ]);
+      return true;
+    } catch (error) {
+      console.warn('Connection check failed:', error);
+      return false;
+    }
+  };
+
+  // Periodically check connection and switch modes
   useEffect(() => {
-    const getUser = async () => {
-      const { data } = await supabase.auth.getUser();
-      setUser(data?.user || null);
-      setAuthLoading(false);
-    };
-    getUser();
-    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user || null);
-    });
-    return () => subscription?.subscription?.unsubscribe();
-  }, []);
+    if (!supabase) return;
+
+    const connectionChecker = setInterval(async () => {
+      if (offlineMode) {
+        // Try to reconnect if offline (check every 60 seconds)
+        const isOnline = await checkConnection();
+        if (isOnline && user && user.id) {
+          console.log('Connection restored - attempting to reload data');
+          setOfflineMode(false);
+          dispatch({ type: 'SET_ERROR', payload: null });
+          // Try to reload user data
+          loadUserData(user.id, 0);
+        }
+      }
+    }, 60000); // Check every 60 seconds instead of 30
+
+    return () => clearInterval(connectionChecker);
+  }, [offlineMode, user]);
 
   const value = {
     ...state,
-    user,
+    user: offlineMode ? { email: 'offline@local' } : user,
     authLoading,
     offlineMode,
+    importTrades,
+    addWithdrawal,
+    setMonthlyGoal,
+    clearData,
+    signOut,
+    // Personal Finance Functions - exported from context
     setCurrentCash,
     addExpense,
     updateExpense,
@@ -292,9 +798,26 @@ export function TradingProvider({ children }) {
     deleteIncome,
     calculateCashFlow,
     calculateNetWorth,
+    // Computed values
+    totalPL,
+    totalWithdrawals,
+    winRate,
+    activeAccounts,
+    winningTrades: winningTrades.length,
+    totalTrades: state.trades.length,
   };
 
-  return <TradingContext.Provider value={value}>{children}</TradingContext.Provider>;
+  return (
+    <TradingContext.Provider value={value}>
+      {children}
+    </TradingContext.Provider>
+  );
 }
 
-export const useTrading = () => useContext(TradingContext);
+export function useTrading() {
+  const context = useContext(TradingContext);
+  if (!context) {
+    throw new Error('useTrading must be used within a TradingProvider');
+  }
+  return context;
+}
