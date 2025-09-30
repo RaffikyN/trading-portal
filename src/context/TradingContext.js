@@ -1,4 +1,43 @@
-import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
+const setCurrentCash = (amount) => {
+    const parsedAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    const finalAmount = isNaN(parsedAmount) ? 0 : parsedAmount;
+    console.log('Setting current cash to:', finalAmount); // Debug log
+    dispatch({ type: 'SET_CURRENT_CASH', payload: finalAmount });
+  };
+
+  const addExpense = (expense) => {
+    const newExpense = {
+      ...expense,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString()
+    };
+    dispatch({ type: 'ADD_EXPENSE', payload: newExpense });
+  };
+
+  const updateExpense = (expense) => {
+    dispatch({ type: 'UPDATE_EXPENSE', payload: expense });
+  };
+
+  const deleteExpense = (expenseId) => {
+    dispatch({ type: 'DELETE_EXPENSE', payload: expenseId });
+  };
+
+  const addIncome = (income) => {
+    const newIncome = {
+      ...income,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString()
+    };
+    dispatch({ type: 'ADD_INCOME', payload: newIncome });
+  };
+
+  const updateIncome = (income) => {
+    dispatch({ type: 'UPDATE_INCOME', payload: income });
+  };
+
+  const deleteIncome = (incomeId) => {
+    dispatch({ type: 'DELETE_INCOME', payload: incomeId });
+  };import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 
 const TradingContext = createContext();
@@ -72,25 +111,12 @@ function tradingReducer(state, action) {
             startingBalance: 100000,
             currentBalance: 100000,
             totalPL: 0,
-            status: 'Active',
-            availableDrawdown: 0
+            status: 'Active'
           };
         }
         accounts[accountName].totalPL += trade.profit;
         accounts[accountName].currentBalance = 
           accounts[accountName].startingBalance + accounts[accountName].totalPL;
-        
-        // Calculate available drawdown
-        const isPA = accountName.includes('PA');
-        const calculatedDrawdown = accounts[accountName].currentBalance - 3000;
-        
-        if (isPA) {
-          // PA accounts: cap at 100,100
-          accounts[accountName].availableDrawdown = Math.min(calculatedDrawdown, 100100);
-        } else {
-          // Regular accounts: always balance - 3k
-          accounts[accountName].availableDrawdown = calculatedDrawdown;
-        }
       });
 
       newState = {
@@ -150,25 +176,12 @@ function tradingReducer(state, action) {
             startingBalance: 100000,
             currentBalance: 100000,
             totalPL: 0,
-            status: 'Active',
-            availableDrawdown: 0
+            status: 'Active'
           };
         }
         updatedAccounts[trade.account].totalPL += trade.profit;
         updatedAccounts[trade.account].currentBalance = 
           updatedAccounts[trade.account].startingBalance + updatedAccounts[trade.account].totalPL;
-        
-        // Calculate available drawdown
-        const isPA = trade.account.includes('PA');
-        const calculatedDrawdown = updatedAccounts[trade.account].currentBalance - 3000;
-        
-        if (isPA) {
-          // PA accounts: cap at 100,100
-          updatedAccounts[trade.account].availableDrawdown = Math.min(calculatedDrawdown, 100100);
-        } else {
-          // Regular accounts: always balance - 3k
-          updatedAccounts[trade.account].availableDrawdown = calculatedDrawdown;
-        }
       });
       
       newState = { 
@@ -224,29 +237,23 @@ function tradingReducer(state, action) {
     case 'ADD_EXPENSE':
       newState = {
         ...state,
-        expenses: [...state.expenses, action.payload.expense],
-        currentCash: state.currentCash - action.payload.expense.amount
+        expenses: [...state.expenses, action.payload]
       };
       break;
     
     case 'UPDATE_EXPENSE':
-      const oldExpense = state.expenses.find(exp => exp.id === action.payload.id);
-      const cashDifference = oldExpense ? oldExpense.amount - action.payload.amount : 0;
       newState = {
         ...state,
         expenses: state.expenses.map(exp => 
           exp.id === action.payload.id ? action.payload : exp
-        ),
-        currentCash: state.currentCash + cashDifference
+        )
       };
       break;
     
     case 'DELETE_EXPENSE':
-      const deletedExpense = state.expenses.find(exp => exp.id === action.payload);
       newState = {
         ...state,
-        expenses: state.expenses.filter(exp => exp.id !== action.payload),
-        currentCash: deletedExpense ? state.currentCash + deletedExpense.amount : state.currentCash
+        expenses: state.expenses.filter(exp => exp.id !== action.payload)
       };
       break;
     
@@ -312,57 +319,6 @@ export function TradingProvider({ children }) {
   const [authLoading, setAuthLoading] = useState(true);
   const [offlineMode, setOfflineMode] = useState(false);
 
-  // Personal Finance Functions - DEFINED INSIDE COMPONENT
-  const setCurrentCash = (amount) => {
-    const parsedAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    const finalAmount = isNaN(parsedAmount) ? 0 : parsedAmount;
-    console.log('Setting current cash to:', finalAmount); // Debug log
-    dispatch({ type: 'SET_CURRENT_CASH', payload: finalAmount });
-  };
-
-  const addExpense = (expense) => {
-    const newExpense = {
-      ...expense,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString()
-    };
-    dispatch({ type: 'ADD_EXPENSE', payload: { expense: newExpense } });
-  };
-
-  const updateExpense = (expense) => {
-    dispatch({ type: 'UPDATE_EXPENSE', payload: expense });
-  };
-
-  const deleteExpense = (expenseId) => {
-    dispatch({ type: 'DELETE_EXPENSE', payload: expenseId });
-  };
-
-  const addIncome = (income) => {
-    const newIncome = {
-      ...income,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString()
-    };
-    dispatch({ type: 'ADD_INCOME', payload: newIncome });
-  };
-
-  const updateIncome = (income) => {
-    dispatch({ type: 'UPDATE_INCOME', payload: income });
-  };
-
-  const deleteIncome = (incomeId) => {
-    dispatch({ type: 'DELETE_INCOME', payload: incomeId });
-  };
-
-  // Load localStorage data on mount (before auth check)
-  useEffect(() => {
-    const localData = loadLocalStorageData();
-    if (localData) {
-      console.log('Loading data from localStorage:', localData);
-      dispatch({ type: 'LOAD_LOCALSTORAGE', payload: localData });
-    }
-  }, []);
-
   // Auth state listener with fallback
   useEffect(() => {
     if (!supabase) {
@@ -370,6 +326,12 @@ export function TradingProvider({ children }) {
       setOfflineMode(true);
       setAuthLoading(false);
       setUser({ email: 'offline@local' }); // Set offline user
+      
+      // Load from localStorage as fallback
+      const localData = loadLocalStorageData();
+      if (localData) {
+        dispatch({ type: 'LOAD_LOCALSTORAGE', payload: localData });
+      }
       return;
     }
 
@@ -675,14 +637,31 @@ export function TradingProvider({ children }) {
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'SET_ERROR', payload: null });
       
-      // Clear local state immediately
+      // Save personal finance data before clearing
+      const personalFinanceData = {
+        expenses: state.expenses,
+        incomes: state.incomes,
+        currentCash: state.currentCash
+      };
+      
+      // Clear trading data but keep personal finance data
       dispatch({ type: 'CLEAR_DATA' });
       setUser(null);
       setOfflineMode(false);
       
-      // Clear localStorage
+      // Restore personal finance data after clearing
       if (typeof window !== 'undefined') {
-        localStorage.removeItem('tradingPortalData');
+        const savedData = JSON.parse(localStorage.getItem('tradingPortalData') || '{}');
+        localStorage.setItem('tradingPortalData', JSON.stringify({
+          ...savedData,
+          expenses: personalFinanceData.expenses,
+          incomes: personalFinanceData.incomes,
+          currentCash: personalFinanceData.currentCash,
+          trades: [],
+          accounts: {},
+          withdrawals: [],
+          monthlyGoals: {}
+        }));
       }
       
       // Then sign out from Supabase if available
@@ -700,13 +679,6 @@ export function TradingProvider({ children }) {
       dispatch({ type: 'SET_LOADING', payload: false });
     } catch (error) {
       console.error('Error signing out:', error);
-      // Force clear everything even if everything fails
-      dispatch({ type: 'CLEAR_DATA' });
-      setUser(null);
-      setOfflineMode(false);
-      if (typeof window !== 'undefined') {
-        localStorage.clear();
-      }
       dispatch({ type: 'SET_LOADING', payload: false });
     }
   };
