@@ -389,15 +389,15 @@ export function TradingProvider({ children }) {
       createdAt: new Date().toISOString()
     };
     
-    dispatch({ type: 'ADD_EXPENSE', payload: newExpense });
-    
-    // Calculate new cash after expense
+    // Calculate new cash value BEFORE dispatching
     const newCash = state.currentCash - expense.amount;
     
-    // Sync to Supabase if online
+    // Dispatch to update local state
+    dispatch({ type: 'ADD_EXPENSE', payload: newExpense });
+    
+    // Sync both expense and updated cash to Supabase
     if (!offlineMode && user && user.id && supabase) {
       try {
-        // Insert expense and update cash in parallel
         await Promise.all([
           supabase.from('expenses').insert({
             id: newExpense.id,
