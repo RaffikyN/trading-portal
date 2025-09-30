@@ -8,7 +8,15 @@ function AccountCard({ account }) {
   const profitPercentage = ((account.totalPL / account.startingBalance) * 100).toFixed(2);
   const isProfit = account.totalPL >= 0;
   const isPA = account.id.includes('PA');
-  const drawdownPercentage = ((account.availableDrawdown / account.currentBalance) * 100).toFixed(1);
+  
+  // Calculate drawdown with fallback for old data
+  let drawdownLimit = account.availableDrawdown;
+  if (drawdownLimit === undefined || drawdownLimit === null) {
+    const calculated = account.currentBalance - 3000;
+    drawdownLimit = isPA ? Math.min(calculated, 100100) : calculated;
+  }
+  
+  const drawdownPercentage = ((drawdownLimit / account.currentBalance) * 100).toFixed(1);
 
   return (
     <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6 hover:bg-trading-card/30 transition-all duration-300">
@@ -58,12 +66,12 @@ function AccountCard({ account }) {
             <span className="text-trading-text-muted text-sm">Drawdown Limit</span>
           </div>
           <span className="text-trading-text font-semibold">
-            ${account.availableDrawdown.toLocaleString()}
+            ${drawdownLimit.toLocaleString()}
           </span>
         </div>
         <div className="text-xs text-trading-text-muted">
           {isPA ? (
-            account.availableDrawdown >= 100100 
+            drawdownLimit >= 100100 
               ? 'Max drawdown reached (capped at $100,100)' 
               : `PA account: ${drawdownPercentage}% of balance`
           ) : (
