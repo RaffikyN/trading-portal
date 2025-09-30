@@ -224,23 +224,29 @@ function tradingReducer(state, action) {
     case 'ADD_EXPENSE':
       newState = {
         ...state,
-        expenses: [...state.expenses, action.payload]
+        expenses: [...state.expenses, action.payload.expense],
+        currentCash: state.currentCash - action.payload.expense.amount
       };
       break;
     
     case 'UPDATE_EXPENSE':
+      const oldExpense = state.expenses.find(exp => exp.id === action.payload.id);
+      const cashDifference = oldExpense ? oldExpense.amount - action.payload.amount : 0;
       newState = {
         ...state,
         expenses: state.expenses.map(exp => 
           exp.id === action.payload.id ? action.payload : exp
-        )
+        ),
+        currentCash: state.currentCash + cashDifference
       };
       break;
     
     case 'DELETE_EXPENSE':
+      const deletedExpense = state.expenses.find(exp => exp.id === action.payload);
       newState = {
         ...state,
-        expenses: state.expenses.filter(exp => exp.id !== action.payload)
+        expenses: state.expenses.filter(exp => exp.id !== action.payload),
+        currentCash: deletedExpense ? state.currentCash + deletedExpense.amount : state.currentCash
       };
       break;
     
@@ -320,32 +326,14 @@ export function TradingProvider({ children }) {
       id: Date.now().toString(),
       createdAt: new Date().toISOString()
     };
-    dispatch({ type: 'ADD_EXPENSE', payload: newExpense });
-    
-    // Deduct expense from current cash
-    const newCash = state.currentCash - expense.amount;
-    dispatch({ type: 'SET_CURRENT_CASH', payload: newCash });
+    dispatch({ type: 'ADD_EXPENSE', payload: { expense: newExpense } });
   };
 
   const updateExpense = (expense) => {
-    // Find the old expense to calculate the difference
-    const oldExpense = state.expenses.find(exp => exp.id === expense.id);
-    if (oldExpense) {
-      // Add back the old expense amount and subtract the new amount
-      const cashDifference = oldExpense.amount - expense.amount;
-      const newCash = state.currentCash + cashDifference;
-      dispatch({ type: 'SET_CURRENT_CASH', payload: newCash });
-    }
     dispatch({ type: 'UPDATE_EXPENSE', payload: expense });
   };
 
   const deleteExpense = (expenseId) => {
-    // Find the expense to add its amount back to cash
-    const expense = state.expenses.find(exp => exp.id === expenseId);
-    if (expense) {
-      const newCash = state.currentCash + expense.amount;
-      dispatch({ type: 'SET_CURRENT_CASH', payload: newCash });
-    }
     dispatch({ type: 'DELETE_EXPENSE', payload: expenseId });
   };
 
