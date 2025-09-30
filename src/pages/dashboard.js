@@ -1,13 +1,11 @@
-import React, { useState } from 'react';
+import React from 'react';
 import Layout from '../components/Layout';
 import { useTrading } from '../context/TradingContext';
-import { TrendingUp, TrendingDown, Users, ArrowDownLeft, Target, Calendar, Wallet, Plus, DollarSign, CreditCard } from 'lucide-react';
+import { TrendingUp, TrendingDown, Users, ArrowDownLeft, Target, Calendar } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
-import Link from 'next/link';
-import { useRouter } from 'next/router';
 
-function StatCard({ title, value, subtitle, icon: Icon, trend, href }) {
-  const content = (
+function StatCard({ title, value, subtitle, icon: Icon, trend }) {
+  return (
     <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6 hover:bg-trading-card/30 transition-all duration-300">
       <div className="flex items-center justify-between">
         <div>
@@ -26,155 +24,6 @@ function StatCard({ title, value, subtitle, icon: Icon, trend, href }) {
         <div className="p-3 bg-trading-pink/20 rounded-full">
           <Icon className="h-6 w-6 text-trading-pink" />
         </div>
-      </div>
-    </div>
-  );
-
-  if (href) {
-    return (
-      <Link href={href}>
-        <a>{content}</a>
-      </Link>
-    );
-  }
-
-  return content;
-}
-
-function QuickAddModal({ type, onClose, onSubmit }) {
-  const { accounts } = useTrading();
-  const [formData, setFormData] = useState({
-    category: '',
-    description: '',
-    amount: '',
-    date: new Date().toISOString().split('T')[0],
-    dueDate: new Date().toISOString().split('T')[0],
-    isPaid: false,
-    isRecurring: false
-  });
-
-  const categories = type === 'expense' 
-    ? ['Housing', 'Transportation', 'Food & Dining', 'Utilities', 'Healthcare', 'Entertainment', 'Shopping', 'Personal Care', 'Education', 'Insurance', 'Credit Cards', 'Loans', 'Investments', 'Other']
-    : ['Salary', 'Freelance', 'Business', 'Investments', 'Trading', 'Rental', 'Other'];
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    onSubmit({
-      ...formData,
-      amount: parseFloat(formData.amount)
-    });
-    onClose();
-  };
-
-  return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-      <div className="bg-trading-card border border-trading-pink/20 rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-semibold text-trading-text mb-4">
-          Add {type === 'expense' ? 'Expense' : 'Income'}
-        </h3>
-        
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-trading-text mb-2">Category</label>
-            <select
-              value={formData.category}
-              onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-              className="w-full bg-trading-bg border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none"
-              required
-            >
-              <option value="">Select Category</option>
-              {categories.map(cat => (
-                <option key={cat} value={cat}>{cat}</option>
-              ))}
-            </select>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-trading-text mb-2">Description</label>
-            <input
-              type="text"
-              value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-              className="w-full bg-trading-bg border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none"
-              placeholder="e.g., Rent, Salary"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-trading-text mb-2">Amount</label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
-              value={formData.amount}
-              onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-              className="w-full bg-trading-bg border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none"
-              placeholder="0.00"
-              required
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-trading-text mb-2">
-              {type === 'expense' ? 'Due Date' : 'Date'}
-            </label>
-            <input
-              type="date"
-              value={type === 'expense' ? formData.dueDate : formData.date}
-              onChange={(e) => setFormData({ 
-                ...formData, 
-                [type === 'expense' ? 'dueDate' : 'date']: e.target.value 
-              })}
-              className="w-full bg-trading-bg border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none"
-              required
-            />
-          </div>
-
-          <div className="flex gap-6">
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.isPaid}
-                onChange={(e) => setFormData({ ...formData, isPaid: e.target.checked })}
-                className="mr-2 accent-trading-pink"
-              />
-              <span className="text-trading-text text-sm">
-                {type === 'expense' ? 'Paid?' : 'Received?'}
-              </span>
-            </label>
-
-            <label className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.isRecurring}
-                onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })}
-                className="mr-2 accent-trading-pink"
-              />
-              <span className="text-trading-text text-sm">Recurring?</span>
-            </label>
-          </div>
-
-          <div className="flex gap-3 pt-4">
-            <button
-              type="submit"
-              className={`flex-1 ${
-                type === 'expense' 
-                  ? 'bg-trading-pink hover:bg-trading-pink-dark' 
-                  : 'bg-trading-green hover:bg-trading-green/80'
-              } text-white px-4 py-2 rounded-lg font-medium transition-colors`}
-            >
-              Add {type === 'expense' ? 'Expense' : 'Income'}
-            </button>
-            <button
-              type="button"
-              onClick={onClose}
-              className="bg-trading-card hover:bg-trading-gray text-trading-text px-4 py-2 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </form>
       </div>
     </div>
   );
@@ -236,19 +85,13 @@ function PerformanceChart({ trades }) {
 }
 
 function TradingCalendar({ trades }) {
-  const router = useRouter();
-  
   // Group trades by date
-  const dailyData = trades.reduce((acc, trade) => {
+  const dailyPL = trades.reduce((acc, trade) => {
     const date = trade.date;
     if (!acc[date]) {
-      acc[date] = {
-        pnl: 0,
-        trades: 0
-      };
+      acc[date] = 0;
     }
-    acc[date].pnl += trade.profit;
-    acc[date].trades += 1;
+    acc[date] += trade.profit;
     return acc;
   }, {});
 
@@ -271,28 +114,16 @@ function TradingCalendar({ trades }) {
   // Add days of the month
   for (let day = 1; day <= daysInMonth; day++) {
     const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const dayData = dailyData[dateStr] || { pnl: 0, trades: 0 };
-    days.push({ 
-      day, 
-      dateStr, 
-      pnl: dayData.pnl, 
-      trades: dayData.trades,
-      hasData: dayData.trades > 0
-    });
+    const pnl = dailyPL[dateStr] || 0;
+    days.push({ day, pnl, dateStr });
   }
-
-  const handleDayClick = (dayData) => {
-    if (dayData && dayData.hasData) {
-      router.push(`/analysis?date=${dayData.dateStr}`);
-    }
-  };
 
   return (
     <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
       <h3 className="text-lg font-semibold text-trading-text mb-4">
         Trading Calendar - {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
       </h3>
-      <div className="grid grid-cols-7 gap-1 text-sm">
+      <div className="grid grid-cols-7 gap-2 text-sm">
         {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
           <div key={day} className="text-center text-trading-text-muted font-medium py-2">
             {day}
@@ -301,41 +132,19 @@ function TradingCalendar({ trades }) {
         {days.map((day, index) => (
           <div
             key={index}
-            onClick={() => handleDayClick(day)}
             className={`
-              aspect-square flex flex-col items-center justify-center text-xs rounded-lg p-1
+              aspect-square flex items-center justify-center text-xs rounded-lg
               ${!day ? 'invisible' : ''}
-              ${day && day.hasData ? 'cursor-pointer hover:scale-105 transform transition-all duration-200' : ''}
-              ${day && day.pnl > 0 ? 'bg-trading-green/20 text-trading-green border border-trading-green/30 hover:bg-trading-green/30' : 
-                day && day.pnl < 0 ? 'bg-trading-red/20 text-trading-red border border-trading-red/30 hover:bg-trading-red/30' :
-                day && day.hasData ? 'bg-trading-gray/20 text-trading-text-muted border border-trading-gray/30 hover:bg-trading-gray/30' :
+              ${day && day.pnl > 0 ? 'bg-trading-green/20 text-trading-green' : 
+                day && day.pnl < 0 ? 'bg-trading-red/20 text-trading-red' :
+                day && day.pnl === 0 && dailyPL[day.dateStr] !== undefined ? 'bg-trading-gray/20 text-trading-text-muted' :
                 'bg-trading-card/10 text-trading-text-muted'}
             `}
-            title={day && day.hasData ? `${day.trades} trades, ${day.pnl.toLocaleString()}` : ''}
           >
-            {day && (
-              <>
-                <div className="font-medium">{day.day}</div>
-                {day.hasData && (
-                  <>
-                    <div className="text-xs font-bold">
-                      ${Math.abs(day.pnl) >= 1000 ? 
-                        `${(day.pnl / 1000).toFixed(1)}k` : 
-                        day.pnl.toFixed(0)
-                      }
-                    </div>
-                    <div className="text-xs opacity-75">
-                      {day.trades}T
-                    </div>
-                  </>
-                )}
-              </>
-            )}
+            {day && day.day}
+
           </div>
         ))}
-      </div>
-      <div className="mt-4 text-xs text-trading-text-muted text-center">
-        Click on trading days to view detailed analysis
       </div>
     </div>
   );
@@ -384,26 +193,7 @@ function WeeklyStats({ trades }) {
 }
 
 export default function Dashboard() {
-  const { 
-    totalPL, 
-    activeAccounts, 
-    totalWithdrawals, 
-    winRate, 
-    trades, 
-    currentCash,
-    addExpense,
-    addIncome 
-  } = useTrading();
-
-  const [showModal, setShowModal] = useState(null);
-
-  const handleAddExpense = (expense) => {
-    addExpense(expense);
-  };
-
-  const handleAddIncome = (income) => {
-    addIncome(income);
-  };
+  const { totalPL, activeAccounts, totalWithdrawals, winRate, trades } = useTrading();
 
   return (
     <Layout>
@@ -417,20 +207,13 @@ export default function Dashboard() {
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
           <StatCard
             title="Total Portfolio P&L"
             value={`$${totalPL.toLocaleString()}`}
             subtitle={totalPL >= 0 ? '+' + ((totalPL / 100000) * 100).toFixed(2) + '%' : ((totalPL / 100000) * 100).toFixed(2) + '%'}
             icon={totalPL >= 0 ? TrendingUp : TrendingDown}
             trend={totalPL >= 0 ? 'up' : 'down'}
-          />
-          <StatCard
-            title="Available Cash"
-            value={`$${currentCash.toLocaleString()}`}
-            subtitle="Personal Finance"
-            icon={Wallet}
-            href="/planner"
           />
           <StatCard
             title="Active Accounts"
@@ -459,65 +242,47 @@ export default function Dashboard() {
           <TradingCalendar trades={trades} />
         </div>
 
-        {/* Weekly Stats and Actions */}
+        {/* Weekly Stats */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           <WeeklyStats trades={trades} />
           
           <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-trading-text mb-4">Quick Actions</h3>
             <div className="space-y-3">
-              <Link href="/journal">
-                <a className="w-full bg-trading-pink/20 hover:bg-trading-pink/30 border border-trading-pink/30 text-trading-pink px-4 py-2 rounded-lg transition-colors block text-center">
-                  Import New Trades
-                </a>
-              </Link>
-              <Link href="/withdrawals">
-                <a className="w-full bg-trading-card hover:bg-trading-gray text-trading-text px-4 py-2 rounded-lg transition-colors block text-center">
-                  Record Withdrawal
-                </a>
-              </Link>
-              <Link href="/analysis">
-                <a className="w-full bg-trading-card hover:bg-trading-gray text-trading-text px-4 py-2 rounded-lg transition-colors block text-center">
-                  View Analysis
-                </a>
-              </Link>
+              <button className="w-full bg-trading-pink/20 hover:bg-trading-pink/30 border border-trading-pink/30 text-trading-pink px-4 py-2 rounded-lg transition-colors">
+                Import New Trades
+              </button>
+              <button className="w-full bg-trading-card hover:bg-trading-gray text-trading-text px-4 py-2 rounded-lg transition-colors">
+                Record Withdrawal
+              </button>
+              <button className="w-full bg-trading-card hover:bg-trading-gray text-trading-text px-4 py-2 rounded-lg transition-colors">
+                View Analysis
+              </button>
             </div>
           </div>
 
           <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-trading-text mb-4">Financial Planner</h3>
+            <h3 className="text-lg font-semibold text-trading-text mb-4">Recent Activity</h3>
             <div className="space-y-3">
-              <button
-                onClick={() => setShowModal('expense')}
-                className="w-full flex items-center justify-center gap-2 bg-trading-pink/20 hover:bg-trading-pink/30 border border-trading-pink/30 text-trading-pink px-4 py-2 rounded-lg transition-colors"
-              >
-                <Plus size={16} />
-                Add Expense
-              </button>
-              <button
-                onClick={() => setShowModal('income')}
-                className="w-full flex items-center justify-center gap-2 bg-trading-green/20 hover:bg-trading-green/30 border border-trading-green/30 text-trading-green px-4 py-2 rounded-lg transition-colors"
-              >
-                <Plus size={16} />
-                Add Income
-              </button>
-              <Link href="/planner">
-                <a className="w-full bg-trading-card hover:bg-trading-gray text-trading-text px-4 py-2 rounded-lg transition-colors block text-center">
-                  View Full Planner
-                </a>
-              </Link>
+              {trades.slice(-3).reverse().map((trade, index) => (
+                <div key={index} className="flex justify-between items-center">
+                  <div>
+                    <p className="text-trading-text text-sm">{trade.symbol}</p>
+                    <p className="text-trading-text-muted text-xs">{trade.date}</p>
+                  </div>
+                  <span className={`text-sm font-medium ${
+                    trade.profit >= 0 ? 'text-trading-green' : 'text-trading-red'
+                  }`}>
+                    ${trade.profit.toLocaleString()}
+                  </span>
+                </div>
+              ))}
+              {trades.length === 0 && (
+                <p className="text-trading-text-muted text-sm">No recent trades</p>
+              )}
             </div>
           </div>
         </div>
-
-        {/* Modals */}
-        {showModal && (
-          <QuickAddModal
-            type={showModal}
-            onClose={() => setShowModal(null)}
-            onSubmit={showModal === 'expense' ? handleAddExpense : handleAddIncome}
-          />
-        )}
       </div>
     </Layout>
   );
