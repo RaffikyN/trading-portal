@@ -1,43 +1,4 @@
-  const setCurrentCash = (amount) => {
-    const parsedAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
-    const finalAmount = isNaN(parsedAmount) ? 0 : parsedAmount;
-    console.log('Setting current cash to:', finalAmount); // Debug log
-    dispatch({ type: 'SET_CURRENT_CASH', payload: finalAmount });
-  };
-
-  const addExpense = (expense) => {
-    const newExpense = {
-      ...expense,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString()
-    };
-    dispatch({ type: 'ADD_EXPENSE', payload: newExpense });
-  };
-
-  const updateExpense = (expense) => {
-    dispatch({ type: 'UPDATE_EXPENSE', payload: expense });
-  };
-
-  const deleteExpense = (expenseId) => {
-    dispatch({ type: 'DELETE_EXPENSE', payload: expenseId });
-  };
-
-  const addIncome = (income) => {
-    const newIncome = {
-      ...income,
-      id: Date.now().toString(),
-      createdAt: new Date().toISOString()
-    };
-    dispatch({ type: 'ADD_INCOME', payload: newIncome });
-  };
-
-  const updateIncome = (income) => {
-    dispatch({ type: 'UPDATE_INCOME', payload: income });
-  };
-
-  const deleteIncome = (incomeId) => {
-    dispatch({ type: 'DELETE_INCOME', payload: incomeId });
-  };import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useState } from 'react';
 import { supabase } from '../../lib/supabase';
 
 const TradingContext = createContext();
@@ -318,6 +279,48 @@ export function TradingProvider({ children }) {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [offlineMode, setOfflineMode] = useState(false);
+
+  // Personal Finance Functions - DEFINED INSIDE COMPONENT
+  const setCurrentCash = (amount) => {
+    const parsedAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+    const finalAmount = isNaN(parsedAmount) ? 0 : parsedAmount;
+    console.log('Setting current cash to:', finalAmount); // Debug log
+    dispatch({ type: 'SET_CURRENT_CASH', payload: finalAmount });
+  };
+
+  const addExpense = (expense) => {
+    const newExpense = {
+      ...expense,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString()
+    };
+    dispatch({ type: 'ADD_EXPENSE', payload: newExpense });
+  };
+
+  const updateExpense = (expense) => {
+    dispatch({ type: 'UPDATE_EXPENSE', payload: expense });
+  };
+
+  const deleteExpense = (expenseId) => {
+    dispatch({ type: 'DELETE_EXPENSE', payload: expenseId });
+  };
+
+  const addIncome = (income) => {
+    const newIncome = {
+      ...income,
+      id: Date.now().toString(),
+      createdAt: new Date().toISOString()
+    };
+    dispatch({ type: 'ADD_INCOME', payload: newIncome });
+  };
+
+  const updateIncome = (income) => {
+    dispatch({ type: 'UPDATE_INCOME', payload: income });
+  };
+
+  const deleteIncome = (incomeId) => {
+    dispatch({ type: 'DELETE_INCOME', payload: incomeId });
+  };
 
   // Auth state listener with fallback
   useEffect(() => {
