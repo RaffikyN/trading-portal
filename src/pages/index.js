@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
 import Layout from '../components/Layout';
 import { useTrading } from '../context/TradingContext';
-import { TrendingUp, TrendingDown, Users, ArrowDownLeft, Target, Calendar, Wallet, Plus, DollarSign, CreditCard } from 'lucide-react';
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer } from 'recharts';
+import { TrendingUp, TrendingDown, Users, ArrowDownLeft, Target, Calendar, Wallet, Plus, DollarSign, CreditCard, Shield, AlertTriangle, CheckCircle, BarChart3, TrendingUp as TrendingUpIcon } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, ResponsiveContainer, BarChart, Bar, PieChart, Pie, Cell } from 'recharts';
 import Link from 'next/link';
 import { useRouter } from 'next/router';
 
@@ -42,7 +42,6 @@ function StatCard({ title, value, subtitle, icon: Icon, trend, href }) {
 }
 
 function QuickAddModal({ type, onClose, onSubmit }) {
-  const { accounts } = useTrading();
   const [formData, setFormData] = useState({
     category: '',
     description: '',
@@ -181,7 +180,6 @@ function QuickAddModal({ type, onClose, onSubmit }) {
 }
 
 function PerformanceChart({ trades }) {
-  // Group trades by date and calculate cumulative P&L
   const dailyData = trades.reduce((acc, trade) => {
     const date = trade.date;
     if (!acc[date]) {
@@ -191,7 +189,6 @@ function PerformanceChart({ trades }) {
     return acc;
   }, {});
 
-  // Convert to array and sort by date
   let cumulativePL = 0;
   const chartData = Object.keys(dailyData)
     .sort()
@@ -235,148 +232,244 @@ function PerformanceChart({ trades }) {
   );
 }
 
-function TradingCalendar({ trades }) {
-  const router = useRouter();
-  
-  // Group trades by date
-  const dailyData = trades.reduce((acc, trade) => {
-    const date = trade.date;
-    if (!acc[date]) {
-      acc[date] = {
-        pnl: 0,
-        trades: 0
-      };
+function TopInstruments({ trades }) {
+  const instrumentData = trades.reduce((acc, trade) => {
+    if (!acc[trade.symbol]) {
+      acc[trade.symbol] = { symbol: trade.symbol, totalPL: 0, trades: 0 };
     }
-    acc[date].pnl += trade.profit;
-    acc[date].trades += 1;
+    acc[trade.symbol].totalPL += trade.profit;
+    acc[trade.symbol].trades++;
     return acc;
   }, {});
 
-  // Get current month days
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const daysInMonth = lastDay.getDate();
-  const startingDayOfWeek = firstDay.getDay();
-
-  const days = [];
-  
-  // Add empty cells for days before the first day of the month
-  for (let i = 0; i < startingDayOfWeek; i++) {
-    days.push(null);
-  }
-  
-  // Add days of the month
-  for (let day = 1; day <= daysInMonth; day++) {
-    const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-    const dayData = dailyData[dateStr] || { pnl: 0, trades: 0 };
-    days.push({ 
-      day, 
-      dateStr, 
-      pnl: dayData.pnl, 
-      trades: dayData.trades,
-      hasData: dayData.trades > 0
-    });
-  }
-
-  const handleDayClick = (dayData) => {
-    if (dayData && dayData.hasData) {
-      router.push(`/analysis?date=${dayData.dateStr}`);
-    }
-  };
+  const topInstruments = Object.values(instrumentData)
+    .sort((a, b) => b.totalPL - a.totalPL)
+    .slice(0, 5);
 
   return (
     <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
-      <h3 className="text-lg font-semibold text-trading-text mb-4">
-        Trading Calendar - {now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}
-      </h3>
-      <div className="grid grid-cols-7 gap-1 text-sm">
-        {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-          <div key={day} className="text-center text-trading-text-muted font-medium py-2">
-            {day}
-          </div>
-        ))}
-        {days.map((day, index) => (
-          <div
-            key={index}
-            onClick={() => handleDayClick(day)}
-            className={`
-              aspect-square flex flex-col items-center justify-center text-xs rounded-lg p-1
-              ${!day ? 'invisible' : ''}
-              ${day && day.hasData ? 'cursor-pointer hover:scale-105 transform transition-all duration-200' : ''}
-              ${day && day.pnl > 0 ? 'bg-trading-green/20 text-trading-green border border-trading-green/30 hover:bg-trading-green/30' : 
-                day && day.pnl < 0 ? 'bg-trading-red/20 text-trading-red border border-trading-red/30 hover:bg-trading-red/30' :
-                day && day.hasData ? 'bg-trading-gray/20 text-trading-text-muted border border-trading-gray/30 hover:bg-trading-gray/30' :
-                'bg-trading-card/10 text-trading-text-muted'}
-            `}
-            title={day && day.hasData ? `${day.trades} trades, ${day.pnl.toLocaleString()}` : ''}
-          >
-            {day && (
-              <>
-                <div className="font-medium">{day.day}</div>
-                {day.hasData && (
-                  <>
-                    <div className="text-xs font-bold">
-                      ${Math.abs(day.pnl) >= 1000 ? 
-                        `${(day.pnl / 1000).toFixed(1)}k` : 
-                        day.pnl.toFixed(0)
-                      }
-                    </div>
-                    <div className="text-xs opacity-75">
-                      {day.trades}T
-                    </div>
-                  </>
-                )}
-              </>
-            )}
-          </div>
-        ))}
-      </div>
-      <div className="mt-4 text-xs text-trading-text-muted text-center">
-        Click on trading days to view detailed analysis
+      <h3 className="text-lg font-semibold text-trading-text mb-4">Top Instruments</h3>
+      <div className="space-y-3">
+        {topInstruments.length > 0 ? (
+          topInstruments.map((instrument, index) => (
+            <div key={instrument.symbol} className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-trading-pink/20 rounded-full flex items-center justify-center text-trading-pink font-semibold text-sm">
+                  {index + 1}
+                </div>
+                <div>
+                  <div className="text-trading-text font-medium">{instrument.symbol}</div>
+                  <div className="text-xs text-trading-text-muted">{instrument.trades} trades</div>
+                </div>
+              </div>
+              <div className={`font-semibold ${instrument.totalPL >= 0 ? 'text-trading-green' : 'text-trading-red'}`}>
+                ${instrument.totalPL.toLocaleString()}
+              </div>
+            </div>
+          ))
+        ) : (
+          <p className="text-trading-text-muted text-center py-4">No trading data yet</p>
+        )}
       </div>
     </div>
   );
 }
 
-function WeeklyStats({ trades }) {
-  // Get this week's trades
-  const now = new Date();
-  const weekStart = new Date(now.setDate(now.getDate() - now.getDay()));
-  const weekEnd = new Date(weekStart);
-  weekEnd.setDate(weekEnd.getDate() + 6);
-
-  const thisWeekTrades = trades.filter(trade => {
-    const tradeDate = new Date(trade.date);
-    return tradeDate >= weekStart && tradeDate <= weekEnd;
-  });
-
-  const weeklyPL = thisWeekTrades.reduce((sum, trade) => sum + trade.profit, 0);
-  const weeklyTrades = thisWeekTrades.length;
+function AccountsOverview({ accounts }) {
+  const accountsArray = Object.values(accounts);
+  const fundedAccounts = accountsArray.filter(acc => acc.id.includes('PA')).length;
+  const evaluationAccounts = accountsArray.length - fundedAccounts;
 
   return (
     <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
-      <h3 className="text-lg font-semibold text-trading-text mb-4">This Week</h3>
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-trading-text">Accounts Overview</h3>
+        <Link href="/accounts">
+          <a className="text-trading-pink hover:text-trading-pink/70 text-sm">View All →</a>
+        </Link>
+      </div>
+      
+      {accountsArray.length > 0 ? (
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
+            <div className="text-center p-3 bg-trading-green/10 rounded-lg">
+              <div className="text-2xl font-bold text-trading-green">{fundedAccounts}</div>
+              <div className="text-xs text-trading-text-muted">Funded (PA)</div>
+            </div>
+            <div className="text-center p-3 bg-trading-pink/10 rounded-lg">
+              <div className="text-2xl font-bold text-trading-pink">{evaluationAccounts}</div>
+              <div className="text-xs text-trading-text-muted">Evaluation</div>
+            </div>
+          </div>
+          
+          <div className="space-y-2">
+            {accountsArray.slice(0, 3).map(account => {
+              const isProfit = account.totalPL >= 0;
+              return (
+                <div key={account.id} className="flex items-center justify-between p-2 bg-trading-card/20 rounded">
+                  <div className="flex items-center gap-2">
+                    <Shield className="h-4 w-4 text-trading-pink" />
+                    <span className="text-sm text-trading-text truncate max-w-[120px]">{account.id}</span>
+                  </div>
+                  <span className={`text-sm font-semibold ${isProfit ? 'text-trading-green' : 'text-trading-red'}`}>
+                    {isProfit ? '+' : ''}${account.totalPL.toLocaleString()}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ) : (
+        <p className="text-trading-text-muted text-center py-4">No accounts yet</p>
+      )}
+    </div>
+  );
+}
+
+function UpcomingExpenses({ expenses }) {
+  const upcoming = expenses
+    .filter(exp => !exp.isPaid)
+    .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+    .slice(0, 5);
+
+  const totalUpcoming = upcoming.reduce((sum, exp) => sum + exp.amount, 0);
+
+  return (
+    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-trading-text">Upcoming Expenses</h3>
+        <Link href="/planner?tab=expenses">
+          <a className="text-trading-pink hover:text-trading-pink/70 text-sm">View All →</a>
+        </Link>
+      </div>
+      
+      {upcoming.length > 0 ? (
+        <>
+          <div className="mb-4 p-3 bg-trading-red/10 rounded-lg">
+            <div className="text-sm text-trading-text-muted">Total Due</div>
+            <div className="text-2xl font-bold text-trading-red">${totalUpcoming.toLocaleString()}</div>
+          </div>
+          
+          <div className="space-y-2">
+            {upcoming.map(expense => {
+              const daysUntilDue = Math.ceil((new Date(expense.dueDate) - new Date()) / (1000 * 60 * 60 * 24));
+              const isOverdue = daysUntilDue < 0;
+              const isDueSoon = daysUntilDue <= 7 && daysUntilDue >= 0;
+              
+              return (
+                <div key={expense.id} className="flex items-center justify-between p-2 bg-trading-card/20 rounded">
+                  <div className="flex items-center gap-2">
+                    {isOverdue ? (
+                      <AlertTriangle className="h-4 w-4 text-trading-red" />
+                    ) : isDueSoon ? (
+                      <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                    ) : (
+                      <CreditCard className="h-4 w-4 text-trading-pink" />
+                    )}
+                    <div>
+                      <div className="text-sm text-trading-text">{expense.description}</div>
+                      <div className="text-xs text-trading-text-muted">
+                        {isOverdue ? 'Overdue' : isDueSoon ? `Due in ${daysUntilDue}d` : new Date(expense.dueDate).toLocaleDateString()}
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-sm font-semibold text-trading-red">${expense.amount.toLocaleString()}</span>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      ) : (
+        <div className="text-center py-8">
+          <CheckCircle className="h-12 w-12 text-trading-green mx-auto mb-2" />
+          <p className="text-trading-text-muted">All expenses paid!</p>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function RecentWithdrawals({ withdrawals }) {
+  const recent = withdrawals
+    .sort((a, b) => new Date(b.date) - new Date(a.date))
+    .slice(0, 5);
+
+  const totalThisMonth = withdrawals.filter(w => {
+    const withdrawalDate = new Date(w.date);
+    const now = new Date();
+    return withdrawalDate.getMonth() === now.getMonth() && 
+           withdrawalDate.getFullYear() === now.getFullYear();
+  }).reduce((sum, w) => sum + w.amount, 0);
+
+  return (
+    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-trading-text">Recent Withdrawals</h3>
+        <Link href="/withdrawals">
+          <a className="text-trading-pink hover:text-trading-pink/70 text-sm">View All →</a>
+        </Link>
+      </div>
+      
+      {recent.length > 0 ? (
+        <>
+          <div className="mb-4 p-3 bg-trading-pink/10 rounded-lg">
+            <div className="text-sm text-trading-text-muted">This Month</div>
+            <div className="text-2xl font-bold text-trading-pink">${totalThisMonth.toLocaleString()}</div>
+          </div>
+          
+          <div className="space-y-2">
+            {recent.map(withdrawal => (
+              <div key={withdrawal.id} className="flex items-center justify-between p-2 bg-trading-card/20 rounded">
+                <div className="flex items-center gap-2">
+                  <ArrowDownLeft className="h-4 w-4 text-trading-pink" />
+                  <div>
+                    <div className="text-sm text-trading-text">{withdrawal.account}</div>
+                    <div className="text-xs text-trading-text-muted">
+                      {new Date(withdrawal.date).toLocaleDateString()}
+                    </div>
+                  </div>
+                </div>
+                <span className="text-sm font-semibold text-trading-pink">${withdrawal.amount.toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <p className="text-trading-text-muted text-center py-8">No withdrawals yet</p>
+      )}
+    </div>
+  );
+}
+
+function CashFlowSummary({ calculateCashFlow, currentCash }) {
+  const monthly = calculateCashFlow('month');
+
+  return (
+    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
+      <h3 className="text-lg font-semibold text-trading-text mb-4">Cash Flow (This Month)</h3>
       <div className="space-y-4">
         <div className="flex justify-between items-center">
-          <span className="text-trading-text-muted">P&L</span>
-          <span className={`font-semibold ${weeklyPL >= 0 ? 'text-trading-green' : 'text-trading-red'}`}>
-            ${weeklyPL.toLocaleString()}
-          </span>
+          <span className="text-trading-text-muted">Current Cash</span>
+          <span className="text-trading-text font-semibold">${currentCash.toLocaleString()}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-trading-text-muted">Trades</span>
-          <span className="text-trading-text font-semibold">{weeklyTrades}</span>
+          <span className="text-trading-text-muted">Income</span>
+          <span className="text-trading-green font-semibold">+${monthly.income.toLocaleString()}</span>
         </div>
         <div className="flex justify-between items-center">
-          <span className="text-trading-text-muted">Avg per Trade</span>
-          <span className={`font-semibold ${
-            weeklyTrades > 0 ? (weeklyPL / weeklyTrades >= 0 ? 'text-trading-green' : 'text-trading-red') : 'text-trading-text-muted'
-          }`}>
-            {weeklyTrades > 0 ? `$${(weeklyPL / weeklyTrades).toLocaleString()}` : '$0'}
-          </span>
+          <span className="text-trading-text-muted">Expenses</span>
+          <span className="text-trading-red font-semibold">-${monthly.expenses.toLocaleString()}</span>
+        </div>
+        <div className="pt-3 border-t border-trading-gray/30">
+          <div className="flex justify-between items-center">
+            <span className="text-trading-text font-medium">Net Cash Flow</span>
+            <span className={`text-lg font-bold ${monthly.netCashFlow >= 0 ? 'text-trading-green' : 'text-trading-red'}`}>
+              {monthly.netCashFlow >= 0 ? '+' : ''}${monthly.netCashFlow.toLocaleString()}
+            </span>
+          </div>
+          <div className="mt-2 text-xs text-trading-text-muted text-right">
+            Projected: ${monthly.projectedCash.toLocaleString()}
+          </div>
         </div>
       </div>
     </div>
@@ -391,19 +484,15 @@ export default function Dashboard() {
     winRate, 
     trades, 
     currentCash,
+    accounts,
+    withdrawals,
+    expenses,
     addExpense,
-    addIncome 
+    addIncome,
+    calculateCashFlow
   } = useTrading();
 
   const [showModal, setShowModal] = useState(null);
-
-  const handleAddExpense = (expense) => {
-    addExpense(expense);
-  };
-
-  const handleAddIncome = (income) => {
-    addIncome(income);
-  };
 
   return (
     <Layout>
@@ -412,11 +501,11 @@ export default function Dashboard() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-trading-text">Dashboard</h1>
           <p className="text-trading-text-muted mt-2">
-            Welcome back! Here's your trading overview.
+            Complete overview of your trading and finances.
           </p>
         </div>
 
-        {/* Stats Grid */}
+        {/* Top Stats Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
           <StatCard
             title="Total Portfolio P&L"
@@ -437,12 +526,14 @@ export default function Dashboard() {
             value={activeAccounts}
             subtitle="Accounts Trading"
             icon={Users}
+            href="/accounts"
           />
           <StatCard
             title="Total Withdrawals"
             value={`$${totalWithdrawals.toLocaleString()}`}
             subtitle="Withdrawn to Date"
             icon={ArrowDownLeft}
+            href="/withdrawals"
           />
           <StatCard
             title="Win Rate"
@@ -450,18 +541,25 @@ export default function Dashboard() {
             subtitle={`${trades.filter(t => t.profit > 0).length} of ${trades.length} trades`}
             icon={Target}
             trend={winRate >= 50 ? 'up' : 'down'}
+            href="/analysis"
           />
         </div>
 
-        {/* Charts and Calendar */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        {/* Main Chart */}
+        <div className="mb-8">
           <PerformanceChart trades={trades} />
-          <TradingCalendar trades={trades} />
         </div>
 
-        {/* Weekly Stats and Actions */}
+        {/* Widgets Grid */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
+          <TopInstruments trades={trades} />
+          <AccountsOverview accounts={accounts} />
+          <CashFlowSummary calculateCashFlow={calculateCashFlow} currentCash={currentCash} />
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <WeeklyStats trades={trades} />
+          <UpcomingExpenses expenses={expenses} />
+          <RecentWithdrawals withdrawals={withdrawals} />
           
           <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-trading-text mb-4">Quick Actions</h3>
@@ -471,25 +569,9 @@ export default function Dashboard() {
                   Import New Trades
                 </a>
               </Link>
-              <Link href="/withdrawals">
-                <a className="w-full bg-trading-card hover:bg-trading-gray text-trading-text px-4 py-2 rounded-lg transition-colors block text-center">
-                  Record Withdrawal
-                </a>
-              </Link>
-              <Link href="/analysis">
-                <a className="w-full bg-trading-card hover:bg-trading-gray text-trading-text px-4 py-2 rounded-lg transition-colors block text-center">
-                  View Analysis
-                </a>
-              </Link>
-            </div>
-          </div>
-
-          <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-trading-text mb-4">Financial Planner</h3>
-            <div className="space-y-3">
               <button
                 onClick={() => setShowModal('expense')}
-                className="w-full flex items-center justify-center gap-2 bg-trading-pink/20 hover:bg-trading-pink/30 border border-trading-pink/30 text-trading-pink px-4 py-2 rounded-lg transition-colors"
+                className="w-full flex items-center justify-center gap-2 bg-trading-red/20 hover:bg-trading-red/30 border border-trading-red/30 text-trading-red px-4 py-2 rounded-lg transition-colors"
               >
                 <Plus size={16} />
                 Add Expense
@@ -501,9 +583,9 @@ export default function Dashboard() {
                 <Plus size={16} />
                 Add Income
               </button>
-              <Link href="/planner">
+              <Link href="/analysis">
                 <a className="w-full bg-trading-card hover:bg-trading-gray text-trading-text px-4 py-2 rounded-lg transition-colors block text-center">
-                  View Full Planner
+                  View Analysis
                 </a>
               </Link>
             </div>
@@ -515,7 +597,7 @@ export default function Dashboard() {
           <QuickAddModal
             type={showModal}
             onClose={() => setShowModal(null)}
-            onSubmit={showModal === 'expense' ? handleAddExpense : handleAddIncome}
+            onSubmit={showModal === 'expense' ? addExpense : addIncome}
           />
         )}
       </div>
