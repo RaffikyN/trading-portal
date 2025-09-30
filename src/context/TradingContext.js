@@ -321,13 +321,31 @@ export function TradingProvider({ children }) {
       createdAt: new Date().toISOString()
     };
     dispatch({ type: 'ADD_EXPENSE', payload: newExpense });
+    
+    // Deduct expense from current cash
+    const newCash = state.currentCash - expense.amount;
+    dispatch({ type: 'SET_CURRENT_CASH', payload: newCash });
   };
 
   const updateExpense = (expense) => {
+    // Find the old expense to calculate the difference
+    const oldExpense = state.expenses.find(exp => exp.id === expense.id);
+    if (oldExpense) {
+      // Add back the old expense amount and subtract the new amount
+      const cashDifference = oldExpense.amount - expense.amount;
+      const newCash = state.currentCash + cashDifference;
+      dispatch({ type: 'SET_CURRENT_CASH', payload: newCash });
+    }
     dispatch({ type: 'UPDATE_EXPENSE', payload: expense });
   };
 
   const deleteExpense = (expenseId) => {
+    // Find the expense to add its amount back to cash
+    const expense = state.expenses.find(exp => exp.id === expenseId);
+    if (expense) {
+      const newCash = state.currentCash + expense.amount;
+      dispatch({ type: 'SET_CURRENT_CASH', payload: newCash });
+    }
     dispatch({ type: 'DELETE_EXPENSE', payload: expenseId });
   };
 
