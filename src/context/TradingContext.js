@@ -72,12 +72,25 @@ function tradingReducer(state, action) {
             startingBalance: 100000,
             currentBalance: 100000,
             totalPL: 0,
-            status: 'Active'
+            status: 'Active',
+            availableDrawdown: 0
           };
         }
         accounts[accountName].totalPL += trade.profit;
         accounts[accountName].currentBalance = 
           accounts[accountName].startingBalance + accounts[accountName].totalPL;
+        
+        // Calculate available drawdown
+        const isPA = accountName.includes('PA');
+        const calculatedDrawdown = accounts[accountName].currentBalance - 3000;
+        
+        if (isPA) {
+          // PA accounts: cap at 100,100
+          accounts[accountName].availableDrawdown = Math.min(calculatedDrawdown, 100100);
+        } else {
+          // Regular accounts: always balance - 3k
+          accounts[accountName].availableDrawdown = calculatedDrawdown;
+        }
       });
 
       newState = {
@@ -137,12 +150,25 @@ function tradingReducer(state, action) {
             startingBalance: 100000,
             currentBalance: 100000,
             totalPL: 0,
-            status: 'Active'
+            status: 'Active',
+            availableDrawdown: 0
           };
         }
         updatedAccounts[trade.account].totalPL += trade.profit;
         updatedAccounts[trade.account].currentBalance = 
           updatedAccounts[trade.account].startingBalance + updatedAccounts[trade.account].totalPL;
+        
+        // Calculate available drawdown
+        const isPA = trade.account.includes('PA');
+        const calculatedDrawdown = updatedAccounts[trade.account].currentBalance - 3000;
+        
+        if (isPA) {
+          // PA accounts: cap at 100,100
+          updatedAccounts[trade.account].availableDrawdown = Math.min(calculatedDrawdown, 100100);
+        } else {
+          // Regular accounts: always balance - 3k
+          updatedAccounts[trade.account].availableDrawdown = calculatedDrawdown;
+        }
       });
       
       newState = { 
@@ -322,6 +348,15 @@ export function TradingProvider({ children }) {
     dispatch({ type: 'DELETE_INCOME', payload: incomeId });
   };
 
+  // Load localStorage data on mount (before auth check)
+  useEffect(() => {
+    const localData = loadLocalStorageData();
+    if (localData) {
+      console.log('Loading data from localStorage:', localData);
+      dispatch({ type: 'LOAD_LOCALSTORAGE', payload: localData });
+    }
+  }, []);
+
   // Auth state listener with fallback
   useEffect(() => {
     if (!supabase) {
@@ -329,12 +364,6 @@ export function TradingProvider({ children }) {
       setOfflineMode(true);
       setAuthLoading(false);
       setUser({ email: 'offline@local' }); // Set offline user
-      
-      // Load from localStorage as fallback
-      const localData = loadLocalStorageData();
-      if (localData) {
-        dispatch({ type: 'LOAD_LOCALSTORAGE', payload: localData });
-      }
       return;
     }
 

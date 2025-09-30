@@ -1,25 +1,34 @@
 import React from 'react';
 import Layout from '../components/Layout';
 import { useTrading } from '../context/TradingContext';
-import { Wallet, TrendingUp, TrendingDown, Activity, AlertCircle } from 'lucide-react';
+import { Wallet, TrendingUp, TrendingDown, Activity, AlertCircle, Shield } from 'lucide-react';
 import Link from 'next/link';
 
 function AccountCard({ account }) {
   const profitPercentage = ((account.totalPL / account.startingBalance) * 100).toFixed(2);
   const isProfit = account.totalPL >= 0;
+  const isPA = account.id.includes('PA');
+  const drawdownPercentage = ((account.availableDrawdown / account.currentBalance) * 100).toFixed(1);
 
   return (
     <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6 hover:bg-trading-card/30 transition-all duration-300">
       <div className="flex items-start justify-between mb-4">
         <div>
           <h3 className="text-lg font-semibold text-trading-text">{account.id}</h3>
-          <p className="text-trading-text-muted text-sm">
-            Status: <span className={`font-medium ${
-              account.status === 'Active' ? 'text-trading-green' : 'text-trading-red'
-            }`}>
-              {account.status}
-            </span>
-          </p>
+          <div className="flex items-center gap-2 mt-1">
+            <p className="text-trading-text-muted text-sm">
+              Status: <span className={`font-medium ${
+                account.status === 'Active' ? 'text-trading-green' : 'text-trading-red'
+              }`}>
+                {account.status}
+              </span>
+            </p>
+            {isPA && (
+              <span className="px-2 py-0.5 bg-trading-pink/20 text-trading-pink text-xs rounded-full">
+                PA
+              </span>
+            )}
+          </div>
         </div>
         <div className="p-2 bg-trading-pink/20 rounded-full">
           <Wallet className="h-5 w-5 text-trading-pink" />
@@ -38,6 +47,28 @@ function AccountCard({ account }) {
           <p className="text-trading-text font-semibold">
             ${account.currentBalance.toLocaleString()}
           </p>
+        </div>
+      </div>
+
+      {/* Drawdown Limit */}
+      <div className="mb-4 p-3 bg-trading-card/30 rounded-lg border border-trading-pink/10">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <Shield className="h-4 w-4 text-trading-pink" />
+            <span className="text-trading-text-muted text-sm">Drawdown Limit</span>
+          </div>
+          <span className="text-trading-text font-semibold">
+            ${account.availableDrawdown.toLocaleString()}
+          </span>
+        </div>
+        <div className="text-xs text-trading-text-muted">
+          {isPA ? (
+            account.availableDrawdown >= 100100 
+              ? 'Max drawdown reached (capped at $100,100)' 
+              : `PA account: ${drawdownPercentage}% of balance`
+          ) : (
+            `Balance - $3,000 = ${drawdownPercentage}% of balance`
+          )}
         </div>
       </div>
 
@@ -85,13 +116,15 @@ function AccountCard({ account }) {
 function AccountSummary({ accounts, trades }) {
   const totalAccounts = Object.keys(accounts).length;
   const activeAccounts = Object.values(accounts).filter(acc => acc.status === 'Active').length;
+  const fundedAccounts = Object.values(accounts).filter(acc => acc.id.includes('PA')).length;
+  const evaluationAccounts = totalAccounts - fundedAccounts;
   const totalStartingBalance = Object.values(accounts).reduce((sum, acc) => sum + acc.startingBalance, 0);
   const totalCurrentBalance = Object.values(accounts).reduce((sum, acc) => sum + acc.currentBalance, 0);
   const totalPL = totalCurrentBalance - totalStartingBalance;
   const avgPLPerAccount = totalAccounts > 0 ? totalPL / totalAccounts : 0;
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
       <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
         <div className="flex items-center justify-between">
           <div>
@@ -106,12 +139,26 @@ function AccountSummary({ accounts, trades }) {
       <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-trading-text-muted text-sm">Total Starting</p>
-            <p className="text-2xl font-bold text-trading-text">
-              ${totalStartingBalance.toLocaleString()}
+            <p className="text-trading-text-muted text-sm">Funded Accounts</p>
+            <p className="text-2xl font-bold text-trading-green">
+              {fundedAccounts}
             </p>
+            <p className="text-sm text-trading-text-muted">PA Accounts</p>
           </div>
-          <Wallet className="h-8 w-8 text-trading-pink" />
+          <Shield className="h-8 w-8 text-trading-green" />
+        </div>
+      </div>
+
+      <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className="text-trading-text-muted text-sm">Evaluation Accounts</p>
+            <p className="text-2xl font-bold text-trading-pink">
+              {evaluationAccounts}
+            </p>
+            <p className="text-sm text-trading-text-muted">Non-PA</p>
+          </div>
+          <TrendingUp className="h-8 w-8 text-trading-pink" />
         </div>
       </div>
 
@@ -138,7 +185,7 @@ function AccountSummary({ accounts, trades }) {
               ${avgPLPerAccount.toLocaleString()}
             </p>
           </div>
-          <TrendingUp className="h-8 w-8 text-trading-pink" />
+          <Wallet className="h-8 w-8 text-trading-pink" />
         </div>
       </div>
     </div>
@@ -200,7 +247,7 @@ export default function AccountTracker() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-trading-text">Account Tracker</h1>
           <p className="text-trading-text-muted mt-2">
-            Monitor your trading accounts and their performance.
+            Monitor your trading accounts, performance, and available drawdown.
           </p>
         </div>
 
@@ -228,31 +275,30 @@ export default function AccountTracker() {
                 Accounts will automatically appear here when you import trades from your CSV files.
               </p>
               <div className="flex justify-center">
-                <Link 
-                  href="/journal"
-                  className="bg-trading-pink hover:bg-trading-pink-dark text-white px-6 py-3 rounded-lg font-medium transition-colors"
-                >
-                  Import Trades
+                <Link href="/journal">
+                  <a className="bg-trading-pink hover:bg-trading-pink-dark text-white px-6 py-3 rounded-lg font-medium transition-colors">
+                    Import Trades
+                  </a>
                 </Link>
               </div>
             </div>
           </div>
         )}
 
-        {/* Account Management Section */}
+        {/* Drawdown Info */}
         {accountsArray.length > 0 && (
           <div className="mt-8 bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
-            <h3 className="text-lg font-semibold text-trading-text mb-4">Account Management</h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <button className="bg-trading-pink/20 hover:bg-trading-pink/30 border border-trading-pink/30 text-trading-pink px-4 py-2 rounded-lg transition-colors">
-                Add Manual Account
-              </button>
-              <button className="bg-trading-card hover:bg-trading-gray text-trading-text px-4 py-2 rounded-lg transition-colors">
-                Export Account Data
-              </button>
-              <button className="bg-trading-card hover:bg-trading-gray text-trading-text px-4 py-2 rounded-lg transition-colors">
-                Account Settings
-              </button>
+            <h3 className="text-lg font-semibold text-trading-text mb-4">Drawdown Information</h3>
+            <div className="space-y-3 text-sm text-trading-text-muted">
+              <p>
+                <strong className="text-trading-text">Regular Accounts:</strong> Drawdown Limit = Current Balance - $3,000
+              </p>
+              <p>
+                <strong className="text-trading-text">PA Accounts (Funded):</strong> Drawdown Limit = Current Balance - $3,000, capped at maximum of $100,100
+              </p>
+              <p className="text-xs">
+                Drawdown limits automatically update when you import new trades.
+              </p>
             </div>
           </div>
         )}
