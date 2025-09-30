@@ -393,42 +393,51 @@ export function TradingProvider({ children }) {
       return;
     }
 
+    // Don't try to load from Supabase if already in offline mode
+    if (offlineMode && retryCount === 0) {
+      console.log('Already in offline mode, skipping Supabase load');
+      return;
+    }
+
     try {
       dispatch({ type: 'SET_LOADING', payload: true });
 
-      // Reduced timeout to 5 seconds (was 15)
+      // Increased timeout to 10 seconds for initial load
+      const timeoutMs = retryCount === 0 ? 10000 : 5000;
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Connection timeout - switching to offline mode')), 5000)
+        setTimeout(() => reject(new Error('Connection timeout - switching to offline mode')), timeoutMs)
       );
 
-      // Create user record if it doesn't exist
-      try {
-        const { data: existingUser, error: userError } = await Promise.race([
-          supabase
-            .from('users')
-            .select('id')
-            .eq('id', userId)
-            .single(),
-          timeoutPromise
-        ]);
-
-        if (userError && userError.code !== 'PGRST116') { // PGRST116 = row not found
-          throw userError;
-        }
-
-        if (!existingUser) {
-          await Promise.race([
+      // Create user record if it doesn't exist (only on first try)
+      if (retryCount === 0) {
+        try {
+          const { data: existingUser, error: userError } = await Promise.race([
             supabase
               .from('users')
-              .insert({ id: userId, email: user?.email || '' }),
+              .select('id')
+              .eq('id', userId)
+              .single(),
             timeoutPromise
           ]);
+
+          if (userError && userError.code !== 'PGRST116') {
+            throw userError;
+          }
+
+          if (!existingUser) {
+            await Promise.race([
+              supabase
+                .from('users')
+                .insert({ id: userId, email: user?.email || '' }),
+              timeoutPromise
+            ]);
+          }
+        } catch (userCreationError) {
+          console.warn('User creation failed, continuing with data load:', userCreationError);
         }
-      } catch (userCreationError) {
-        console.warn('User creation failed, continuing with data load:', userCreationError);
       }
 
-      // Load all user data with shorter timeout
+      // Load all user data with timeout
       const [
         { data: trades, error: tradesError },
         { data: withdrawals, error: withdrawalsError },
@@ -453,25 +462,32 @@ export function TradingProvider({ children }) {
       dispatch({ type: 'LOAD_GOALS', payload: goals || [] });
 
       dispatch({ type: 'SET_LOADING', payload: false });
+      
+      // Clear error on successful load
+      dispatch({ type: 'SET_ERROR', payload: null });
 
     } catch (error) {
       console.error('Error loading user data:', error);
       
-      // Retry once before falling back
+      // Only retry once
       if (retryCount === 0) {
-        console.log('Retrying data load...');
-        setTimeout(() => loadUserData(userId, 1), 1000);
+        console.log('Retrying data load once more...');
+        setTimeout(() => loadUserData(userId, 1), 2000);
         return;
       }
       
-      // Fall back to offline mode if retries fail
-      console.warn('Switching to offline mode due to connection issues');
+      // After retry fails, switch to offline mode
+      console.warn('Switching to offline mode - using local data');
       setOfflineMode(true);
+      
+      // Load from localStorage as fallback
       const localData = loadLocalStorageData();
       if (localData) {
+        console.log('Loading data from localStorage backup');
         dispatch({ type: 'LOAD_LOCALSTORAGE', payload: localData });
       }
-      dispatch({ type: 'SET_ERROR', payload: 'Connection timeout - using offline mode' });
+      
+      dispatch({ type: 'SET_ERROR', payload: 'Using offline mode - data saved locally' });
       dispatch({ type: 'SET_LOADING', payload: false });
     }
   };
@@ -604,27 +620,20 @@ export function TradingProvider({ children }) {
   };
 
   const clearData = async () => {
+    if (!window.confirm('Are you sure you want to delete ALL data? This cannot be undone.')) {
+      return;
+    }
+    
     try {
-      // Try to delete from Supabase if available and online
-      if (!offlineMode && user && user.id && supabase) {
-        try {
-          await Promise.all([
-            supabase.from('trades').delete().eq('user_id', user.id),
-            supabase.from('withdrawals').delete().eq('user_id', user.id),
-            supabase.from('monthly_goals').delete().eq('user_id', user.id)
-          ]);
-        } catch (error) {
-          console.warn('Failed to clear Supabase data:', error);
-        }
-      }
-
-      // Always clear local data
+      // Clear local state
       dispatch({ type: 'CLEAR_DATA' });
       
       // Clear localStorage
       if (typeof window !== 'undefined') {
         localStorage.removeItem('tradingPortalData');
       }
+      
+      console.log('All data cleared successfully');
     } catch (error) {
       console.error('Error clearing data:', error);
       dispatch({ type: 'SET_ERROR', payload: 'Failed to clear data' });
@@ -633,38 +642,14 @@ export function TradingProvider({ children }) {
 
   const signOut = async () => {
     try {
-      // Force clear loading state and show sign out is happening
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'SET_ERROR', payload: null });
       
-      // Save personal finance data before clearing
-      const personalFinanceData = {
-        expenses: state.expenses,
-        incomes: state.incomes,
-        currentCash: state.currentCash
-      };
-      
-      // Clear trading data but keep personal finance data
-      dispatch({ type: 'CLEAR_DATA' });
+      // Don't clear any data - keep everything in localStorage
+      // Just sign out from Supabase
       setUser(null);
       setOfflineMode(false);
       
-      // Restore personal finance data after clearing
-      if (typeof window !== 'undefined') {
-        const savedData = JSON.parse(localStorage.getItem('tradingPortalData') || '{}');
-        localStorage.setItem('tradingPortalData', JSON.stringify({
-          ...savedData,
-          expenses: personalFinanceData.expenses,
-          incomes: personalFinanceData.incomes,
-          currentCash: personalFinanceData.currentCash,
-          trades: [],
-          accounts: {},
-          withdrawals: [],
-          monthlyGoals: {}
-        }));
-      }
-      
-      // Then sign out from Supabase if available
       if (supabase) {
         try {
           const { error } = await supabase.auth.signOut();
@@ -773,18 +758,20 @@ export function TradingProvider({ children }) {
 
     const connectionChecker = setInterval(async () => {
       if (offlineMode) {
-        // Try to reconnect if offline
+        // Try to reconnect if offline (check every 60 seconds)
         const isOnline = await checkConnection();
-        if (isOnline) {
-          console.log('Connection restored - switching back to online mode');
+        if (isOnline && user && user.id) {
+          console.log('Connection restored - attempting to reload data');
           setOfflineMode(false);
           dispatch({ type: 'SET_ERROR', payload: null });
+          // Try to reload user data
+          loadUserData(user.id, 0);
         }
       }
-    }, 30000); // Check every 30 seconds
+    }, 60000); // Check every 60 seconds instead of 30
 
     return () => clearInterval(connectionChecker);
-  }, [offlineMode]);
+  }, [offlineMode, user]);
 
   const value = {
     ...state,
