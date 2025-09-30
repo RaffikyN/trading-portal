@@ -221,6 +221,38 @@ function tradingReducer(state, action) {
       };
       break;
     
+    case 'LOAD_EXPENSES':
+      newState = {
+        ...state,
+        expenses: action.payload.map(exp => ({
+          id: exp.id,
+          category: exp.category,
+          description: exp.description,
+          amount: parseFloat(exp.amount),
+          dueDate: exp.due_date,
+          isPaid: exp.is_paid,
+          isRecurring: exp.is_recurring,
+          createdAt: exp.created_at
+        }))
+      };
+      break;
+    
+    case 'LOAD_INCOMES':
+      newState = {
+        ...state,
+        incomes: action.payload.map(inc => ({
+          id: inc.id,
+          category: inc.category,
+          description: inc.description,
+          amount: parseFloat(inc.amount),
+          date: inc.date,
+          isPaid: inc.is_paid,
+          isRecurring: inc.is_recurring,
+          createdAt: inc.created_at
+        }))
+      };
+      break;
+    
     case 'ADD_EXPENSE':
       newState = {
         ...state,
@@ -294,6 +326,18 @@ function tradingReducer(state, action) {
       };
       break;
     
+    case 'CLEAR_TRADING_DATA':
+      newState = {
+        ...state,
+        trades: [],
+        accounts: {},
+        withdrawals: [],
+        monthlyGoals: {},
+        loading: false,
+        error: null,
+      };
+      break;
+    
     default:
       return state;
   }
@@ -313,45 +357,185 @@ export function TradingProvider({ children }) {
   const [offlineMode, setOfflineMode] = useState(false);
 
   // Personal Finance Functions - DEFINED INSIDE COMPONENT
-  const setCurrentCash = (amount) => {
+  const setCurrentCash = async (amount) => {
     const parsedAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
     const finalAmount = isNaN(parsedAmount) ? 0 : parsedAmount;
-    console.log('Setting current cash to:', finalAmount); // Debug log
+    console.log('Setting current cash to:', finalAmount);
+    
     dispatch({ type: 'SET_CURRENT_CASH', payload: finalAmount });
+    
+    // Sync to Supabase if online
+    if (!offlineMode && user && user.id && supabase) {
+      try {
+        const { error } = await supabase
+          .from('user_settings')
+          .upsert({
+            user_id: user.id,
+            current_cash: finalAmount,
+            updated_at: new Date().toISOString()
+          });
+        
+        if (error) throw error;
+      } catch (error) {
+        console.warn('Failed to sync cash to Supabase:', error);
+      }
+    }
   };
 
-  const addExpense = (expense) => {
+  const addExpense = async (expense) => {
     const newExpense = {
       ...expense,
       id: Date.now().toString(),
       createdAt: new Date().toISOString()
     };
+    
     dispatch({ type: 'ADD_EXPENSE', payload: newExpense });
+    
+    // Sync to Supabase if online
+    if (!offlineMode && user && user.id && supabase) {
+      try {
+        const { error } = await supabase
+          .from('expenses')
+          .insert({
+            id: newExpense.id,
+            user_id: user.id,
+            category: newExpense.category,
+            description: newExpense.description,
+            amount: newExpense.amount,
+            due_date: newExpense.dueDate,
+            is_paid: newExpense.isPaid,
+            is_recurring: newExpense.isRecurring,
+            created_at: newExpense.createdAt
+          });
+        
+        if (error) throw error;
+      } catch (error) {
+        console.warn('Failed to sync expense to Supabase:', error);
+      }
+    }
   };
 
-  const updateExpense = (expense) => {
+  const updateExpense = async (expense) => {
     dispatch({ type: 'UPDATE_EXPENSE', payload: expense });
+    
+    // Sync to Supabase if online
+    if (!offlineMode && user && user.id && supabase) {
+      try {
+        const { error } = await supabase
+          .from('expenses')
+          .update({
+            category: expense.category,
+            description: expense.description,
+            amount: expense.amount,
+            due_date: expense.dueDate,
+            is_paid: expense.isPaid,
+            is_recurring: expense.isRecurring
+          })
+          .eq('id', expense.id)
+          .eq('user_id', user.id);
+        
+        if (error) throw error;
+      } catch (error) {
+        console.warn('Failed to update expense in Supabase:', error);
+      }
+    }
   };
 
-  const deleteExpense = (expenseId) => {
+  const deleteExpense = async (expenseId) => {
     dispatch({ type: 'DELETE_EXPENSE', payload: expenseId });
+    
+    // Sync to Supabase if online
+    if (!offlineMode && user && user.id && supabase) {
+      try {
+        const { error } = await supabase
+          .from('expenses')
+          .delete()
+          .eq('id', expenseId)
+          .eq('user_id', user.id);
+        
+        if (error) throw error;
+      } catch (error) {
+        console.warn('Failed to delete expense from Supabase:', error);
+      }
+    }
   };
 
-  const addIncome = (income) => {
+  const addIncome = async (income) => {
     const newIncome = {
       ...income,
       id: Date.now().toString(),
       createdAt: new Date().toISOString()
     };
+    
     dispatch({ type: 'ADD_INCOME', payload: newIncome });
+    
+    // Sync to Supabase if online
+    if (!offlineMode && user && user.id && supabase) {
+      try {
+        const { error } = await supabase
+          .from('incomes')
+          .insert({
+            id: newIncome.id,
+            user_id: user.id,
+            category: newIncome.category,
+            description: newIncome.description,
+            amount: newIncome.amount,
+            date: newIncome.date,
+            is_paid: newIncome.isPaid,
+            is_recurring: newIncome.isRecurring,
+            created_at: newIncome.createdAt
+          });
+        
+        if (error) throw error;
+      } catch (error) {
+        console.warn('Failed to sync income to Supabase:', error);
+      }
+    }
   };
 
-  const updateIncome = (income) => {
+  const updateIncome = async (income) => {
     dispatch({ type: 'UPDATE_INCOME', payload: income });
+    
+    // Sync to Supabase if online
+    if (!offlineMode && user && user.id && supabase) {
+      try {
+        const { error } = await supabase
+          .from('incomes')
+          .update({
+            category: income.category,
+            description: income.description,
+            amount: income.amount,
+            date: income.date,
+            is_paid: income.isPaid,
+            is_recurring: income.isRecurring
+          })
+          .eq('id', income.id)
+          .eq('user_id', user.id);
+        
+        if (error) throw error;
+      } catch (error) {
+        console.warn('Failed to update income in Supabase:', error);
+      }
+    }
   };
 
-  const deleteIncome = (incomeId) => {
+  const deleteIncome = async (incomeId) => {
     dispatch({ type: 'DELETE_INCOME', payload: incomeId });
+    
+    // Sync to Supabase if online
+    if (!offlineMode && user && user.id && supabase) {
+      try {
+        const { error } = await supabase
+          .from('incomes')
+          .delete()
+          .eq('id', incomeId)
+          .eq('user_id', user.id);
+        
+        if (error) throw error;
+      } catch (error) {
+        console.warn('Failed to delete income from Supabase:', error);
+      }
+    }
   };
 
   // Load localStorage data on mount (before auth check)
@@ -470,12 +654,18 @@ export function TradingProvider({ children }) {
       const [
         { data: trades, error: tradesError },
         { data: withdrawals, error: withdrawalsError },
-        { data: goals, error: goalsError }
+        { data: goals, error: goalsError },
+        { data: expenses, error: expensesError },
+        { data: incomes, error: incomesError },
+        { data: settings, error: settingsError }
       ] = await Promise.race([
         Promise.all([
           supabase.from('trades').select('*').eq('user_id', userId).limit(1000),
           supabase.from('withdrawals').select('*').eq('user_id', userId).limit(100),
-          supabase.from('monthly_goals').select('*').eq('user_id', userId).limit(50)
+          supabase.from('monthly_goals').select('*').eq('user_id', userId).limit(50),
+          supabase.from('expenses').select('*').eq('user_id', userId).limit(500),
+          supabase.from('incomes').select('*').eq('user_id', userId).limit(500),
+          supabase.from('user_settings').select('*').eq('user_id', userId).single()
         ]),
         timeoutPromise
       ]);
@@ -484,11 +674,17 @@ export function TradingProvider({ children }) {
       if (tradesError) console.warn('Error loading trades:', tradesError);
       if (withdrawalsError) console.warn('Error loading withdrawals:', withdrawalsError);
       if (goalsError) console.warn('Error loading goals:', goalsError);
+      if (expensesError) console.warn('Error loading expenses:', expensesError);
+      if (incomesError) console.warn('Error loading incomes:', incomesError);
+      if (settingsError) console.warn('Error loading settings:', settingsError);
 
       // Always dispatch data (even if empty) to clear loading state
       dispatch({ type: 'LOAD_TRADES', payload: trades || [] });
       dispatch({ type: 'LOAD_WITHDRAWALS', payload: withdrawals || [] });
       dispatch({ type: 'LOAD_GOALS', payload: goals || [] });
+      dispatch({ type: 'LOAD_EXPENSES', payload: expenses || [] });
+      dispatch({ type: 'LOAD_INCOMES', payload: incomes || [] });
+      dispatch({ type: 'SET_CURRENT_CASH', payload: settings?.current_cash || 0 });
 
       dispatch({ type: 'SET_LOADING', payload: false });
 
@@ -649,7 +845,10 @@ export function TradingProvider({ children }) {
           await Promise.all([
             supabase.from('trades').delete().eq('user_id', user.id),
             supabase.from('withdrawals').delete().eq('user_id', user.id),
-            supabase.from('monthly_goals').delete().eq('user_id', user.id)
+            supabase.from('monthly_goals').delete().eq('user_id', user.id),
+            supabase.from('expenses').delete().eq('user_id', user.id),
+            supabase.from('incomes').delete().eq('user_id', user.id),
+            supabase.from('user_settings').delete().eq('user_id', user.id)
           ]);
         } catch (error) {
           console.warn('Failed to clear Supabase data:', error);
@@ -675,17 +874,11 @@ export function TradingProvider({ children }) {
       dispatch({ type: 'SET_LOADING', payload: true });
       dispatch({ type: 'SET_ERROR', payload: null });
       
-      // Clear local state immediately
-      dispatch({ type: 'CLEAR_DATA' });
+      // DON'T clear any data - keep everything in localStorage
       setUser(null);
       setOfflineMode(false);
       
-      // Clear localStorage
-      if (typeof window !== 'undefined') {
-        localStorage.removeItem('tradingPortalData');
-      }
-      
-      // Then sign out from Supabase if available
+      // Sign out from Supabase if available
       if (supabase) {
         try {
           const { error } = await supabase.auth.signOut();
@@ -700,13 +893,8 @@ export function TradingProvider({ children }) {
       dispatch({ type: 'SET_LOADING', payload: false });
     } catch (error) {
       console.error('Error signing out:', error);
-      // Force clear everything even if everything fails
-      dispatch({ type: 'CLEAR_DATA' });
       setUser(null);
       setOfflineMode(false);
-      if (typeof window !== 'undefined') {
-        localStorage.clear();
-      }
       dispatch({ type: 'SET_LOADING', payload: false });
     }
   };
