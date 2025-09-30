@@ -391,12 +391,15 @@ export function TradingProvider({ children }) {
     
     dispatch({ type: 'ADD_EXPENSE', payload: newExpense });
     
+    // Calculate new cash after expense
+    const newCash = state.currentCash - expense.amount;
+    
     // Sync to Supabase if online
     if (!offlineMode && user && user.id && supabase) {
       try {
-        const { error } = await supabase
-          .from('expenses')
-          .insert({
+        // Insert expense and update cash in parallel
+        await Promise.all([
+          supabase.from('expenses').insert({
             id: newExpense.id,
             user_id: user.id,
             category: newExpense.category,
@@ -406,9 +409,13 @@ export function TradingProvider({ children }) {
             is_paid: newExpense.isPaid,
             is_recurring: newExpense.isRecurring,
             created_at: newExpense.createdAt
-          });
-        
-        if (error) throw error;
+          }),
+          supabase.from('user_settings').upsert({
+            user_id: user.id,
+            current_cash: newCash,
+            updated_at: new Date().toISOString()
+          })
+        ]);
       } catch (error) {
         console.warn('Failed to sync expense to Supabase:', error);
       }
@@ -416,25 +423,31 @@ export function TradingProvider({ children }) {
   };
 
   const updateExpense = async (expense) => {
+    // Find the old expense to calculate cash difference
+    const oldExpense = state.expenses.find(exp => exp.id === expense.id);
+    const cashDifference = oldExpense ? oldExpense.amount - expense.amount : 0;
+    const newCash = state.currentCash + cashDifference;
+    
     dispatch({ type: 'UPDATE_EXPENSE', payload: expense });
     
     // Sync to Supabase if online
     if (!offlineMode && user && user.id && supabase) {
       try {
-        const { error } = await supabase
-          .from('expenses')
-          .update({
+        await Promise.all([
+          supabase.from('expenses').update({
             category: expense.category,
             description: expense.description,
             amount: expense.amount,
             due_date: expense.dueDate,
             is_paid: expense.isPaid,
             is_recurring: expense.isRecurring
+          }).eq('id', expense.id).eq('user_id', user.id),
+          supabase.from('user_settings').upsert({
+            user_id: user.id,
+            current_cash: newCash,
+            updated_at: new Date().toISOString()
           })
-          .eq('id', expense.id)
-          .eq('user_id', user.id);
-        
-        if (error) throw error;
+        ]);
       } catch (error) {
         console.warn('Failed to update expense in Supabase:', error);
       }
@@ -442,18 +455,23 @@ export function TradingProvider({ children }) {
   };
 
   const deleteExpense = async (expenseId) => {
+    // Find the expense to add its amount back to cash
+    const deletedExpense = state.expenses.find(exp => exp.id === expenseId);
+    const newCash = deletedExpense ? state.currentCash + deletedExpense.amount : state.currentCash;
+    
     dispatch({ type: 'DELETE_EXPENSE', payload: expenseId });
     
     // Sync to Supabase if online
     if (!offlineMode && user && user.id && supabase) {
       try {
-        const { error } = await supabase
-          .from('expenses')
-          .delete()
-          .eq('id', expenseId)
-          .eq('user_id', user.id);
-        
-        if (error) throw error;
+        await Promise.all([
+          supabase.from('expenses').delete().eq('id', expenseId).eq('user_id', user.id),
+          supabase.from('user_settings').upsert({
+            user_id: user.id,
+            current_cash: newCash,
+            updated_at: new Date().toISOString()
+          })
+        ]);
       } catch (error) {
         console.warn('Failed to delete expense from Supabase:', error);
       }
