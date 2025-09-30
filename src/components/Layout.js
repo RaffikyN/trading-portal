@@ -75,20 +75,20 @@ export default function Layout({ children }) {
               const isActive = router.pathname === item.href;
               
               return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`
-                    flex items-center px-4 py-3 text-sm rounded-lg transition-colors
-                    ${isActive 
-                      ? 'bg-trading-pink/20 text-trading-pink border border-trading-pink/30' 
-                      : 'text-trading-text hover:bg-trading-pink/10 hover:text-trading-pink'
-                    }
-                  `}
-                  onClick={() => setSidebarOpen(false)}
-                >
-                  <Icon className="mr-3 h-5 w-5" />
-                  {item.name}
+                <Link key={item.name} href={item.href}>
+                  <a
+                    className={`
+                      flex items-center px-4 py-3 text-sm rounded-lg transition-colors
+                      ${isActive 
+                        ? 'bg-trading-pink/20 text-trading-pink border border-trading-pink/30' 
+                        : 'text-trading-text hover:bg-trading-pink/10 hover:text-trading-pink'
+                      }
+                    `}
+                    onClick={() => setSidebarOpen(false)}
+                  >
+                    <Icon className="mr-3 h-5 w-5" />
+                    {item.name}
+                  </a>
                 </Link>
               );
             })}
@@ -130,7 +130,7 @@ export default function Layout({ children }) {
           <div className="bg-trading-pink/20 border-b border-trading-pink/30 px-4 py-2">
             <div className="flex items-center justify-between">
               <p className="text-trading-pink text-sm">
-                📱 Offline Mode - Data saved locally only
+                Offline Mode - Data saved locally only
               </p>
               <button 
                 onClick={() => window.location.reload()}
