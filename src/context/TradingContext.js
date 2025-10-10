@@ -42,8 +42,204 @@ const initialState = {
   withdrawals: [],
   monthlyGoals: {},
   // Personal Finance Data
-  expenses: [],
-  incomes: [],
+  expenses: [
+  {
+    id: 'exp-1',
+    name: 'Upgrade',
+    description: 'Upgrade',
+    amount: 50,
+    date: '2025-10-01',
+    dueDate: '2025-10-01',
+    category: 'Bills',
+    isRecurring: true,
+    isPaid: true
+  },
+  {
+    id: 'exp-2',
+    name: 'Bank of America',
+    description: 'Bank of America',
+    amount: 111,
+    date: '2025-10-17',
+    dueDate: '2025-10-17',
+    category: 'Bills',
+    isRecurring: true,
+    isPaid: false
+  },
+  {
+    id: 'exp-3',
+    name: 'Capital One',
+    description: 'Capital One',
+    amount: 64,
+    date: '2025-10-13',
+    dueDate: '2025-10-13',
+    category: 'Bills',
+    isRecurring: true,
+    isPaid: true
+  },
+  {
+    id: 'exp-4',
+    name: 'PenFed Loan',
+    description: 'PenFed Loan',
+    amount: 200,
+    date: '2025-10-20',
+    dueDate: '2025-10-20',
+    category: 'Bills',
+    isRecurring: true,
+    isPaid: false
+  },
+  {
+    id: 'exp-5',
+    name: 'Uncle Payment',
+    description: 'Uncle Payment',
+    amount: 230,
+    date: '2025-10-24',
+    dueDate: '2025-10-24',
+    category: 'Bills',
+    isRecurring: true,
+    isPaid: false
+  },
+  {
+    id: 'exp-6',
+    name: 'Colombia Guy',
+    description: 'Colombia Guy',
+    amount: 200,
+    date: '2025-10-31',
+    dueDate: '2025-10-31',
+    category: 'Bills',
+    isRecurring: true,
+    isPaid: false
+  },
+  {
+    id: 'exp-7',
+    name: 'Car Payment',
+    description: 'Car Payment',
+    amount: 261,
+    date: '2025-10-26',
+    dueDate: '2025-10-26',
+    category: 'Bills',
+    isRecurring: true,
+    isPaid: false
+  },
+  {
+    id: 'exp-8',
+    name: 'Car Insurance',
+    description: 'Car Insurance',
+    amount: 160,
+    date: '2025-10-26',
+    dueDate: '2025-10-26',
+    category: 'Bills',
+    isRecurring: true,
+    isPaid: false
+  },
+  {
+    id: 'exp-9',
+    name: 'Country Club Colombia',
+    description: 'Country Club Colombia',
+    amount: 65,
+    date: '2025-10-11',
+    dueDate: '2025-10-11',
+    category: 'Bills',
+    isRecurring: true,
+    isPaid: false
+  },
+  {
+    id: 'exp-10',
+    name: 'Gas',
+    description: 'Gas',
+    amount: 60,
+    date: '2025-10-31',
+    dueDate: '2025-10-31',
+    category: 'Gas',
+    isRecurring: true,
+    isPaid: false
+  },
+  {
+    id: 'exp-11',
+    name: 'Amscot',
+    description: 'Amscot',
+    amount: 75,
+    date: '2025-10-17',
+    dueDate: '2025-10-17',
+    category: 'Bills',
+    isRecurring: true,
+    isPaid: false
+  },
+  {
+    id: 'exp-12',
+    name: 'Apple Card',
+    description: 'Apple Card',
+    amount: 109,
+    date: '2025-10-31',
+    dueDate: '2025-10-31',
+    category: 'Bills',
+    isRecurring: true,
+    isPaid: false
+  },
+  {
+    id: 'exp-13',
+    name: 'Klarna',
+    description: 'Klarna',
+    amount: 81,
+    date: '2025-10-16',
+    dueDate: '2025-10-16',
+    category: 'Bills',
+    isRecurring: false,
+    isPaid: false
+  },
+  {
+    id: 'exp-14',
+    name: 'Possible Loan',
+    description: 'Possible Loan',
+    amount: 88,
+    date: '2025-10-17',
+    dueDate: '2025-10-17',
+    category: 'Bills',
+    isRecurring: false,
+    isPaid: false
+  }
+  ],
+  incomes: [
+  {
+    id: 'inc-1',
+    name: 'Weekly Paycheck',
+    description: 'Salary',
+    amount: 600,
+    date: '2025-10-10',
+    category: 'Income',
+    isRecurring: true,
+    isPaid: true
+  },
+  {
+    id: 'inc-2',
+    name: 'Weekly Paycheck',
+    description: 'Salary',
+    amount: 600,
+    date: '2025-10-17',
+    category: 'Income',
+    isRecurring: true,
+    isPaid: false
+  },
+  {
+    id: 'inc-3',
+    name: 'Weekly Paycheck',
+    description: 'Salary',
+    amount: 600,
+    date: '2025-10-24',
+    category: 'Income',
+    isRecurring: true,
+    isPaid: false
+  },
+  {
+    id: 'inc-4',
+    name: 'Weekly Paycheck',
+    description: 'Salary',
+    amount: 600,
+    date: '2025-10-31',
+    category: 'Income',
+    isRecurring: true,
+    isPaid: false
+  }
+  ],
   currentCash: 0,
   loading: false,
   error: null,
