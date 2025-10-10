@@ -955,4 +955,4 @@ function IncomeForm({ onSubmit, onCancel, editingIncome }) {
             <button type="button" onClick={onCancel} className="bg-trading-card hover:bg-trading-gray text-trading-text px-6 py-2 rounded-lg transition-colors">
               Cancel
             </button>
-          )} 
+          )}
