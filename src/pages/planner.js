@@ -23,16 +23,14 @@ import {
 } from 'lucide-react';
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip, Legend, LineChart, Line } from 'recharts';
 
-// ... (Keep all the existing helper components: EXPENSE_CATEGORIES, INCOME_CATEGORIES, ExpenseForm, IncomeForm, CashCalculator)
-
 const EXPENSE_CATEGORIES = [
   'Housing', 'Transportation', 'Food & Dining', 'Utilities', 'Healthcare',
   'Entertainment', 'Shopping', 'Personal Care', 'Education', 'Insurance',
-  'Credit Cards', 'Loans', 'Investments', 'Other'
+  'Bills', 'Gas', 'Loans', 'Investments', 'Other'
 ];
 
 const INCOME_CATEGORIES = [
-  'Salary', 'Freelance', 'Business', 'Investments', 'Trading', 'Rental', 'Other'
+  'Salary', 'Freelance', 'Business', 'Investments', 'Trading', 'Rental', 'Income', 'Other'
 ];
 
 function CashCalculator({ calculateCashFlow, currentCash, setCurrentCash }) {
@@ -81,9 +79,426 @@ function CashCalculator({ calculateCashFlow, currentCash, setCurrentCash }) {
           <label className="block text-sm font-medium text-trading-text mb-2">
             Current Cash on Hand
           </label>
-          <div className="flex gap-3 pt-4">
-          <button type="submit" className="bg-trading-green hover:bg-trading-green/80 text-white px-6 py-2 rounded-lg font-medium transition-colors">
-            {editingIncome ? 'Update' : 'Add'} Income
+          <div className="flex gap-2">
+            <input
+              type="number"
+              step="0.01"
+              value={tempCash}
+              onChange={(e) => setTempCash(e.target.value)}
+              className="flex-1 bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none"
+              placeholder="0.00"
+            />
+            <button
+              type="button"
+              onClick={handleUpdateCash}
+              className="bg-trading-pink hover:bg-trading-pink-dark text-white px-4 py-2 rounded-lg transition-colors"
+            >
+              Update
+            </button>
+            <button
+              type="button"
+              onClick={handleCancel}
+              className="bg-trading-card hover:bg-trading-gray text-trading-text px-4 py-2 rounded-lg transition-colors"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="text-center p-4 bg-trading-card/20 rounded-lg">
+          <div className="text-sm text-trading-text-muted">Today</div>
+          <div className="text-lg font-bold text-trading-text">${dailyCash.projectedCash.toLocaleString()}</div>
+          <div className={`text-sm ${dailyCash.netCashFlow >= 0 ? 'text-trading-green' : 'text-trading-red'}`}>
+            {dailyCash.netCashFlow >= 0 ? '+' : ''}${dailyCash.netCashFlow.toLocaleString()}
+          </div>
+        </div>
+
+        <div className="text-center p-4 bg-trading-card/20 rounded-lg">
+          <div className="text-sm text-trading-text-muted">This Week</div>
+          <div className="text-lg font-bold text-trading-text">${weeklyCash.projectedCash.toLocaleString()}</div>
+          <div className={`text-sm ${weeklyCash.netCashFlow >= 0 ? 'text-trading-green' : 'text-trading-red'}`}>
+            {weeklyCash.netCashFlow >= 0 ? '+' : ''}${weeklyCash.netCashFlow.toLocaleString()}
+          </div>
+        </div>
+
+        <div className="text-center p-4 bg-trading-card/20 rounded-lg">
+          <div className="text-sm text-trading-text-muted">This Month</div>
+          <div className="text-lg font-bold text-trading-text">${monthlyCash.projectedCash.toLocaleString()}</div>
+          <div className={`text-sm ${monthlyCash.netCashFlow >= 0 ? 'text-trading-green' : 'text-trading-red'}`}>
+            {monthlyCash.netCashFlow >= 0 ? '+' : ''}${monthlyCash.netCashFlow.toLocaleString()}
+          </div>
+        </div>
+      </div>
+
+      <div className="mt-4 text-center">
+        <div className={`text-2xl font-bold text-trading-text transition-all ${
+          justUpdated ? 'scale-110 text-trading-green' : ''
+        }`}>
+          Current Cash: ${currentCash.toLocaleString()}
+        </div>
+        {justUpdated && (
+          <div className="text-sm text-trading-green mt-1">✓ Updated!</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function ExpensesByCategoryChart({ expenses }) {
+  const categoryTotals = expenses.reduce((acc, expense) => {
+    acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
+    return acc;
+  }, {});
+
+  const chartData = Object.entries(categoryTotals)
+    .map(([category, amount]) => ({ category, amount }))
+    .sort((a, b) => b.amount - a.amount);
+
+  const COLORS = ['#ec4899', '#f472b6', '#fb7185', '#f87171', '#fb923c', '#fbbf24', '#a3e635', '#4ade80', '#34d399', '#2dd4bf'];
+
+  return (
+    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
+      <h3 className="text-lg font-semibold text-trading-text mb-4">Expenses by Category</h3>
+      {chartData.length > 0 ? (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={chartData}
+                  cx="50%"
+                  cy="50%"
+                  labelLine={false}
+                  label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}
+                  outerRadius={80}
+                  fill="#8884d8"
+                  dataKey="amount"
+                >
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+          <div className="space-y-2">
+            {chartData.map((item, index) => (
+              <div key={item.category} className="flex items-center justify-between p-2 bg-trading-card/20 rounded">
+                <div className="flex items-center gap-2">
+                  <div 
+                    className="w-3 h-3 rounded-full" 
+                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
+                  />
+                  <span className="text-sm text-trading-text">{item.category}</span>
+                </div>
+                <span className="text-sm font-semibold text-trading-red">${item.amount.toLocaleString()}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <p className="text-trading-text-muted text-center py-8">No expense data to display</p>
+      )}
+    </div>
+  );
+}
+
+function IncomeByCategoryChart({ incomes }) {
+  const categoryTotals = incomes.reduce((acc, income) => {
+    acc[income.category] = (acc[income.category] || 0) + income.amount;
+    return acc;
+  }, {});
+
+  const chartData = Object.entries(categoryTotals)
+    .map(([category, amount]) => ({ category, amount }))
+    .sort((a, b) => b.amount - a.amount);
+
+  return (
+    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
+      <h3 className="text-lg font-semibold text-trading-text mb-4">Income by Source</h3>
+      {chartData.length > 0 ? (
+        <div className="h-64">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+              <XAxis dataKey="category" stroke="#9ca3af" fontSize={12} />
+              <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(value) => `$${value}`} />
+              <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
+              <Bar dataKey="amount" fill="#10b981" radius={[4, 4, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      ) : (
+        <p className="text-trading-text-muted text-center py-8">No income data to display</p>
+      )}
+    </div>
+  );
+}
+
+function RecurringBillsCalendar({ expenses }) {
+  const recurringExpenses = expenses.filter(exp => exp.isRecurring);
+  
+  return (
+    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
+      <div className="flex items-center gap-2 mb-4">
+        <Repeat className="h-5 w-5 text-trading-pink" />
+        <h3 className="text-lg font-semibold text-trading-text">Recurring Bills This Month</h3>
+      </div>
+      
+      {recurringExpenses.length > 0 ? (
+        <div className="space-y-3">
+          {recurringExpenses.map(expense => {
+            const dueDate = new Date(expense.dueDate);
+            const day = dueDate.getDate();
+            const today = new Date();
+            const isPast = dueDate < today;
+            const isToday = dueDate.toDateString() === today.toDateString();
+            
+            return (
+              <div key={expense.id} className={`p-3 rounded-lg border ${
+                expense.isPaid ? 'bg-trading-green/5 border-trading-green/20' :
+                isPast ? 'bg-trading-red/5 border-trading-red/20' :
+                isToday ? 'bg-trading-pink/10 border-trading-pink/30' :
+                'bg-trading-card/20 border-trading-gray/20'
+              }`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
+                      expense.isPaid ? 'bg-trading-green/20 text-trading-green' :
+                      isPast ? 'bg-trading-red/20 text-trading-red' :
+                      'bg-trading-pink/20 text-trading-pink'
+                    }`}>
+                      {day}
+                    </div>
+                    <div>
+                      <div className="text-trading-text font-medium">{expense.description}</div>
+                      <div className="text-xs text-trading-text-muted">{expense.category}</div>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-trading-red font-semibold">${expense.amount.toLocaleString()}</div>
+                    {expense.isPaid && (
+                      <div className="text-xs text-trading-green flex items-center gap-1">
+                        <CheckCircle size={12} /> Paid
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          <div className="pt-3 border-t border-trading-gray/30">
+            <div className="flex justify-between items-center">
+              <span className="text-trading-text-muted">Total Monthly Recurring</span>
+              <span className="text-xl font-bold text-trading-red">
+                ${recurringExpenses.reduce((sum, exp) => sum + exp.amount, 0).toLocaleString()}
+              </span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <p className="text-trading-text-muted text-center py-8">No recurring bills set up</p>
+      )}
+    </div>
+  );
+}
+
+function MonthlyTrend({ expenses, incomes }) {
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const date = new Date();
+    date.setMonth(date.getMonth() - i);
+    months.push({
+      month: date.toLocaleDateString('en-US', { month: 'short' }),
+      year: date.getFullYear(),
+      monthNum: date.getMonth(),
+      yearNum: date.getFullYear()
+    });
+  }
+
+  const chartData = months.map(m => {
+    const monthExpenses = expenses.filter(exp => {
+      const expDate = new Date(exp.dueDate);
+      return expDate.getMonth() === m.monthNum && expDate.getFullYear() === m.yearNum;
+    }).reduce((sum, exp) => sum + exp.amount, 0);
+
+    const monthIncome = incomes.filter(inc => {
+      const incDate = new Date(inc.date);
+      return incDate.getMonth() === m.monthNum && incDate.getFullYear() === m.yearNum;
+    }).reduce((sum, inc) => sum + inc.amount, 0);
+
+    return {
+      month: m.month,
+      expenses: monthExpenses,
+      income: monthIncome,
+      net: monthIncome - monthExpenses
+    };
+  });
+
+  return (
+    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
+      <h3 className="text-lg font-semibold text-trading-text mb-4">6-Month Trend</h3>
+      <div className="h-64">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={chartData}>
+            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+            <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
+            <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(value) => `$${value}`} />
+            <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
+            <Legend />
+            <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} name="Income" />
+            <Line type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={2} name="Expenses" />
+            <Line type="monotone" dataKey="net" stroke="#ec4899" strokeWidth={2} name="Net" />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+function SmartInvestor({ netWorth, calculateCashFlow }) {
+  const monthlyCashFlow = calculateCashFlow('month');
+  const availableCash = Math.max(0, monthlyCashFlow.projectedCash - 1000);
+
+  const getInvestmentSuggestions = () => {
+    const suggestions = [];
+
+    if (availableCash < 500) {
+      suggestions.push({
+        type: 'Emergency Fund',
+        suggestion: 'Focus on building an emergency fund of 3-6 months of expenses before investing.',
+        priority: 'High'
+      });
+    } else if (availableCash < 2000) {
+      suggestions.push({
+        type: 'High-Yield Savings',
+        suggestion: 'Consider a high-yield savings account or money market fund for liquidity.',
+        priority: 'Medium'
+      });
+    } else {
+      suggestions.push({
+        type: 'Index Funds',
+        suggestion: 'Consider low-cost index funds (S&P 500) for long-term growth.',
+        priority: 'High'
+      });
+      suggestions.push({
+        type: 'Trading Capital',
+        suggestion: 'Allocate some funds to expand your trading accounts for higher returns.',
+        priority: 'Medium'
+      });
+    }
+
+    if (netWorth > 10000) {
+      suggestions.push({
+        type: 'Diversification',
+        suggestion: 'Consider diversifying with bonds, REITs, or international funds.',
+        priority: 'Medium'
+      });
+    }
+
+    return suggestions;
+  };
+
+  const suggestions = getInvestmentSuggestions();
+
+  return (
+    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
+      <h3 className="text-lg font-semibold text-trading-text mb-4 flex items-center gap-2">
+        <Brain className="h-5 w-5 text-trading-pink" />
+        Investment Recommendations
+      </h3>
+      
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+        <div className="text-center p-4 bg-trading-card/30 rounded-lg">
+          <div className="text-sm text-trading-text-muted">Net Worth</div>
+          <div className="text-2xl font-bold text-trading-green">${netWorth.toLocaleString()}</div>
+        </div>
+        <div className="text-center p-4 bg-trading-card/30 rounded-lg">
+          <div className="text-sm text-trading-text-muted">Available to Invest</div>
+          <div className="text-2xl font-bold text-trading-pink">${availableCash.toLocaleString()}</div>
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        {suggestions.map((suggestion, index) => (
+          <div key={index} className="p-4 bg-trading-card/30 rounded-lg border-l-4 border-trading-pink/50">
+            <div className="flex justify-between items-start mb-2">
+              <h5 className="font-medium text-trading-text">{suggestion.type}</h5>
+              <span className={`px-2 py-1 rounded-full text-xs ${
+                suggestion.priority === 'High' ? 'bg-trading-red/20 text-trading-red' :
+                suggestion.priority === 'Medium' ? 'bg-trading-pink/20 text-trading-pink' :
+                'bg-trading-gray/20 text-trading-text-muted'
+              }`}>
+                {suggestion.priority} Priority
+              </span>
+            </div>
+            <p className="text-trading-text-muted text-sm">{suggestion.suggestion}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ExpenseForm({ onSubmit, onCancel, editingExpense }) {
+  const [formData, setFormData] = useState(editingExpense || {
+    category: '',
+    description: '',
+    amount: '',
+    dueDate: new Date().toISOString().split('T')[0],
+    isPaid: false,
+    isRecurring: false
+  });
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    if (!formData.category || !formData.description || !formData.amount) return;
+    onSubmit({ ...formData, amount: parseFloat(formData.amount) });
+  };
+
+  return (
+    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
+      <h3 className="text-lg font-semibold text-trading-text mb-4">
+        {editingExpense ? 'Edit Expense' : 'Add New Expense'}
+      </h3>
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-trading-text mb-2">Category</label>
+            <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="w-full bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none" required>
+              <option value="">Select Category</option>
+              {EXPENSE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-trading-text mb-2">Amount</label>
+            <input type="number" step="0.01" min="0" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} className="w-full bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none" placeholder="0.00" required />
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-trading-text mb-2">Description</label>
+          <input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none" placeholder="e.g., Bank of America Credit Card" required />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-trading-text mb-2">Due Date</label>
+          <input type="date" value={formData.dueDate} onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })} className="w-full bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none cursor-pointer" required />
+        </div>
+        <div className="flex gap-6">
+          <label className="flex items-center">
+            <input type="checkbox" checked={formData.isPaid} onChange={(e) => setFormData({ ...formData, isPaid: e.target.checked })} className="mr-2 accent-trading-pink" />
+            <span className="text-trading-text">Paid?</span>
+          </label>
+          <label className="flex items-center">
+            <input type="checkbox" checked={formData.isRecurring} onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })} className="mr-2 accent-trading-pink" />
+            <span className="text-trading-text">Recurring?</span>
+          </label>
+        </div>
+        <div className="flex gap-3 pt-4">
+          <button type="submit" className="bg-trading-pink hover:bg-trading-pink-dark text-white px-6 py-2 rounded-lg font-medium transition-colors">
+            {editingExpense ? 'Update' : 'Add'} Expense
           </button>
           {onCancel && (
             <button type="button" onClick={onCancel} className="bg-trading-card hover:bg-trading-gray text-trading-text px-6 py-2 rounded-lg transition-colors">
@@ -472,451 +887,7 @@ export default function FinancialPlanner() {
       </div>
     </Layout>
   );
-} gap-2">
-            <input
-              type="number"
-              step="0.01"
-              value={tempCash}
-              onChange={(e) => setTempCash(e.target.value)}
-              className="flex-1 bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none"
-              placeholder="0.00"
-            />
-            <button
-              type="button"
-              onClick={handleUpdateCash}
-              className="bg-trading-pink hover:bg-trading-pink-dark text-white px-4 py-2 rounded-lg transition-colors"
-            >
-              Update
-            </button>
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="bg-trading-card hover:bg-trading-gray text-trading-text px-4 py-2 rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="text-center p-4 bg-trading-card/20 rounded-lg">
-          <div className="text-sm text-trading-text-muted">Today</div>
-          <div className="text-lg font-bold text-trading-text">${dailyCash.projectedCash.toLocaleString()}</div>
-          <div className={`text-sm ${dailyCash.netCashFlow >= 0 ? 'text-trading-green' : 'text-trading-red'}`}>
-            {dailyCash.netCashFlow >= 0 ? '+' : ''}${dailyCash.netCashFlow.toLocaleString()}
-          </div>
-        </div>
-
-        <div className="text-center p-4 bg-trading-card/20 rounded-lg">
-          <div className="text-sm text-trading-text-muted">This Week</div>
-          <div className="text-lg font-bold text-trading-text">${weeklyCash.projectedCash.toLocaleString()}</div>
-          <div className={`text-sm ${weeklyCash.netCashFlow >= 0 ? 'text-trading-green' : 'text-trading-red'}`}>
-            {weeklyCash.netCashFlow >= 0 ? '+' : ''}${weeklyCash.netCashFlow.toLocaleString()}
-          </div>
-        </div>
-
-        <div className="text-center p-4 bg-trading-card/20 rounded-lg">
-          <div className="text-sm text-trading-text-muted">This Month</div>
-          <div className="text-lg font-bold text-trading-text">${monthlyCash.projectedCash.toLocaleString()}</div>
-          <div className={`text-sm ${monthlyCash.netCashFlow >= 0 ? 'text-trading-green' : 'text-trading-red'}`}>
-            {monthlyCash.netCashFlow >= 0 ? '+' : ''}${monthlyCash.netCashFlow.toLocaleString()}
-          </div>
-        </div>
-      </div>
-
-      <div className="mt-4 text-center">
-        <div className={`text-2xl font-bold text-trading-text transition-all ${
-          justUpdated ? 'scale-110 text-trading-green' : ''
-        }`}>
-          Current Cash: ${currentCash.toLocaleString()}
-        </div>
-        {justUpdated && (
-          <div className="text-sm text-trading-green mt-1">✓ Updated!</div>
-        )}
-      </div>
-    </div>
-  );
 }
-
-function ExpensesByCategoryChart({ expenses }) {
-  const categoryTotals = expenses.reduce((acc, expense) => {
-    acc[expense.category] = (acc[expense.category] || 0) + expense.amount;
-    return acc;
-  }, {});
-
-  const chartData = Object.entries(categoryTotals)
-    .map(([category, amount]) => ({ category, amount }))
-    .sort((a, b) => b.amount - a.amount);
-
-  const COLORS = ['#ec4899', '#f472b6', '#fb7185', '#f87171', '#fb923c', '#fbbf24', '#a3e635', '#4ade80', '#34d399', '#2dd4bf'];
-
-  return (
-    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
-      <h3 className="text-lg font-semibold text-trading-text mb-4">Expenses by Category</h3>
-      {chartData.length > 0 ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={chartData}
-                  cx="50%"
-                  cy="50%"
-                  labelLine={false}
-                  label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}
-                  outerRadius={80}
-                  fill="#8884d8"
-                  dataKey="amount"
-                >
-                  {chartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="space-y-2">
-            {chartData.map((item, index) => (
-              <div key={item.category} className="flex items-center justify-between p-2 bg-trading-card/20 rounded">
-                <div className="flex items-center gap-2">
-                  <div 
-                    className="w-3 h-3 rounded-full" 
-                    style={{ backgroundColor: COLORS[index % COLORS.length] }}
-                  />
-                  <span className="text-sm text-trading-text">{item.category}</span>
-                </div>
-                <span className="text-sm font-semibold text-trading-red">${item.amount.toLocaleString()}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <p className="text-trading-text-muted text-center py-8">No expense data to display</p>
-      )}
-    </div>
-  );
-}
-
-function IncomeByCategoryChart({ incomes }) {
-  const categoryTotals = incomes.reduce((acc, income) => {
-    acc[income.category] = (acc[income.category] || 0) + income.amount;
-    return acc;
-  }, {});
-
-  const chartData = Object.entries(categoryTotals)
-    .map(([category, amount]) => ({ category, amount }))
-    .sort((a, b) => b.amount - a.amount);
-
-  return (
-    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
-      <h3 className="text-lg font-semibold text-trading-text mb-4">Income by Source</h3>
-      {chartData.length > 0 ? (
-        <div className="h-64">
-          <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-              <XAxis dataKey="category" stroke="#9ca3af" fontSize={12} />
-              <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(value) => `$${value}`} />
-              <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
-              <Bar dataKey="amount" fill="#10b981" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
-        </div>
-      ) : (
-        <p className="text-trading-text-muted text-center py-8">No income data to display</p>
-      )}
-    </div>
-  );
-}
-
-function RecurringBillsCalendar({ expenses }) {
-  const recurringExpenses = expenses.filter(exp => exp.isRecurring);
-  
-  // Get current month
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth();
-  const firstDay = new Date(year, month, 1);
-  const lastDay = new Date(year, month + 1, 0);
-  const daysInMonth = lastDay.getDate();
-
-  // Group expenses by day of month
-  const expensesByDay = {};
-  recurringExpenses.forEach(exp => {
-    const day = new Date(exp.dueDate).getDate();
-    if (!expensesByDay[day]) {
-      expensesByDay[day] = [];
-    }
-    expensesByDay[day].push(exp);
-  });
-
-  return (
-    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
-      <div className="flex items-center gap-2 mb-4">
-        <Repeat className="h-5 w-5 text-trading-pink" />
-        <h3 className="text-lg font-semibold text-trading-text">Recurring Bills This Month</h3>
-      </div>
-      
-      {recurringExpenses.length > 0 ? (
-        <div className="space-y-3">
-          {recurringExpenses.map(expense => {
-            const dueDate = new Date(expense.dueDate);
-            const day = dueDate.getDate();
-            const today = new Date();
-            const isPast = dueDate < today;
-            const isToday = dueDate.toDateString() === today.toDateString();
-            
-            return (
-              <div key={expense.id} className={`p-3 rounded-lg border ${
-                expense.isPaid ? 'bg-trading-green/5 border-trading-green/20' :
-                isPast ? 'bg-trading-red/5 border-trading-red/20' :
-                isToday ? 'bg-trading-pink/10 border-trading-pink/30' :
-                'bg-trading-card/20 border-trading-gray/20'
-              }`}>
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold ${
-                      expense.isPaid ? 'bg-trading-green/20 text-trading-green' :
-                      isPast ? 'bg-trading-red/20 text-trading-red' :
-                      'bg-trading-pink/20 text-trading-pink'
-                    }`}>
-                      {day}
-                    </div>
-                    <div>
-                      <div className="text-trading-text font-medium">{expense.description}</div>
-                      <div className="text-xs text-trading-text-muted">{expense.category}</div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-trading-red font-semibold">${expense.amount.toLocaleString()}</div>
-                    {expense.isPaid && (
-                      <div className="text-xs text-trading-green flex items-center gap-1">
-                        <CheckCircle size={12} /> Paid
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-          <div className="pt-3 border-t border-trading-gray/30">
-            <div className="flex justify-between items-center">
-              <span className="text-trading-text-muted">Total Monthly Recurring</span>
-              <span className="text-xl font-bold text-trading-red">
-                ${recurringExpenses.reduce((sum, exp) => sum + exp.amount, 0).toLocaleString()}
-              </span>
-            </div>
-          </div>
-        </div>
-      ) : (
-        <p className="text-trading-text-muted text-center py-8">No recurring bills set up</p>
-      )}
-    </div>
-  );
-}
-
-function MonthlyTrend({ expenses, incomes }) {
-  // Get last 6 months of data
-  const months = [];
-  for (let i = 5; i >= 0; i--) {
-    const date = new Date();
-    date.setMonth(date.getMonth() - i);
-    months.push({
-      month: date.toLocaleDateString('en-US', { month: 'short' }),
-      year: date.getFullYear(),
-      monthNum: date.getMonth(),
-      yearNum: date.getFullYear()
-    });
-  }
-
-  const chartData = months.map(m => {
-    const monthExpenses = expenses.filter(exp => {
-      const expDate = new Date(exp.dueDate);
-      return expDate.getMonth() === m.monthNum && expDate.getFullYear() === m.yearNum;
-    }).reduce((sum, exp) => sum + exp.amount, 0);
-
-    const monthIncome = incomes.filter(inc => {
-      const incDate = new Date(inc.date);
-      return incDate.getMonth() === m.monthNum && incDate.getFullYear() === m.yearNum;
-    }).reduce((sum, inc) => sum + inc.amount, 0);
-
-    return {
-      month: m.month,
-      expenses: monthExpenses,
-      income: monthIncome,
-      net: monthIncome - monthExpenses
-    };
-  });
-
-  return (
-    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
-      <h3 className="text-lg font-semibold text-trading-text mb-4">6-Month Trend</h3>
-      <div className="h-64">
-        <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={chartData}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-            <XAxis dataKey="month" stroke="#9ca3af" fontSize={12} />
-            <YAxis stroke="#9ca3af" fontSize={12} tickFormatter={(value) => `$${value}`} />
-            <Tooltip formatter={(value) => `$${value.toLocaleString()}`} />
-            <Legend />
-            <Line type="monotone" dataKey="income" stroke="#10b981" strokeWidth={2} name="Income" />
-            <Line type="monotone" dataKey="expenses" stroke="#ef4444" strokeWidth={2} name="Expenses" />
-            <Line type="monotone" dataKey="net" stroke="#ec4899" strokeWidth={2} name="Net" />
-          </LineChart>
-        </ResponsiveContainer>
-      </div>
-    </div>
-  );
-}
-
-function SmartInvestor({ netWorth, calculateCashFlow }) {
-  const monthlyCashFlow = calculateCashFlow('month');
-  const availableCash = Math.max(0, monthlyCashFlow.projectedCash - 1000);
-
-  const getInvestmentSuggestions = () => {
-    const suggestions = [];
-
-    if (availableCash < 500) {
-      suggestions.push({
-        type: 'Emergency Fund',
-        suggestion: 'Focus on building an emergency fund of 3-6 months of expenses before investing.',
-        priority: 'High'
-      });
-    } else if (availableCash < 2000) {
-      suggestions.push({
-        type: 'High-Yield Savings',
-        suggestion: 'Consider a high-yield savings account or money market fund for liquidity.',
-        priority: 'Medium'
-      });
-    } else {
-      suggestions.push({
-        type: 'Index Funds',
-        suggestion: 'Consider low-cost index funds (S&P 500) for long-term growth.',
-        priority: 'High'
-      });
-      suggestions.push({
-        type: 'Trading Capital',
-        suggestion: 'Allocate some funds to expand your trading accounts for higher returns.',
-        priority: 'Medium'
-      });
-    }
-
-    if (netWorth > 10000) {
-      suggestions.push({
-        type: 'Diversification',
-        suggestion: 'Consider diversifying with bonds, REITs, or international funds.',
-        priority: 'Medium'
-      });
-    }
-
-    return suggestions;
-  };
-
-  const suggestions = getInvestmentSuggestions();
-
-  return (
-    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
-      <h3 className="text-lg font-semibold text-trading-text mb-4 flex items-center gap-2">
-        <Brain className="h-5 w-5 text-trading-pink" />
-        Investment Recommendations
-      </h3>
-      
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div className="text-center p-4 bg-trading-card/30 rounded-lg">
-          <div className="text-sm text-trading-text-muted">Net Worth</div>
-          <div className="text-2xl font-bold text-trading-green">${netWorth.toLocaleString()}</div>
-        </div>
-        <div className="text-center p-4 bg-trading-card/30 rounded-lg">
-          <div className="text-sm text-trading-text-muted">Available to Invest</div>
-          <div className="text-2xl font-bold text-trading-pink">${availableCash.toLocaleString()}</div>
-        </div>
-      </div>
-
-      <div className="space-y-4">
-        {suggestions.map((suggestion, index) => (
-          <div key={index} className="p-4 bg-trading-card/30 rounded-lg border-l-4 border-trading-pink/50">
-            <div className="flex justify-between items-start mb-2">
-              <h5 className="font-medium text-trading-text">{suggestion.type}</h5>
-              <span className={`px-2 py-1 rounded-full text-xs ${
-                suggestion.priority === 'High' ? 'bg-trading-red/20 text-trading-red' :
-                suggestion.priority === 'Medium' ? 'bg-trading-pink/20 text-trading-pink' :
-                'bg-trading-gray/20 text-trading-text-muted'
-              }`}>
-                {suggestion.priority} Priority
-              </span>
-            </div>
-            <p className="text-trading-text-muted text-sm">{suggestion.suggestion}</p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function ExpenseForm({ onSubmit, onCancel, editingExpense }) {
-  const [formData, setFormData] = useState(editingExpense || {
-    category: '',
-    description: '',
-    amount: '',
-    dueDate: new Date().toISOString().split('T')[0],
-    isPaid: false,
-    isRecurring: false
-  });
-
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    if (!formData.category || !formData.description || !formData.amount) return;
-    onSubmit({ ...formData, amount: parseFloat(formData.amount) });
-  };
-
-  return (
-    <div className="bg-trading-card/20 backdrop-blur-sm border border-trading-pink/20 rounded-lg p-6">
-      <h3 className="text-lg font-semibold text-trading-text mb-4">
-        {editingExpense ? 'Edit Expense' : 'Add New Expense'}
-      </h3>
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-trading-text mb-2">Category</label>
-            <select value={formData.category} onChange={(e) => setFormData({ ...formData, category: e.target.value })} className="w-full bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none" required>
-              <option value="">Select Category</option>
-              {EXPENSE_CATEGORIES.map(cat => <option key={cat} value={cat}>{cat}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-trading-text mb-2">Amount</label>
-            <input type="number" step="0.01" min="0" value={formData.amount} onChange={(e) => setFormData({ ...formData, amount: e.target.value })} className="w-full bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none" placeholder="0.00" required />
-          </div>
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-trading-text mb-2">Description</label>
-          <input type="text" value={formData.description} onChange={(e) => setFormData({ ...formData, description: e.target.value })} className="w-full bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none" placeholder="e.g., Bank of America Credit Card" required />
-        </div>
-        <div>
-          <label className="block text-sm font-medium text-trading-text mb-2">Due Date</label>
-          <input type="date" value={formData.dueDate} onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })} className="w-full bg-trading-card border border-trading-gray rounded-lg px-3 py-2 text-trading-text focus:border-trading-pink focus:outline-none cursor-pointer" required />
-        </div>
-        <div className="flex gap-6">
-          <label className="flex items-center">
-            <input type="checkbox" checked={formData.isPaid} onChange={(e) => setFormData({ ...formData, isPaid: e.target.checked })} className="mr-2 accent-trading-pink" />
-            <span className="text-trading-text">Paid?</span>
-          </label>
-          <label className="flex items-center">
-            <input type="checkbox" checked={formData.isRecurring} onChange={(e) => setFormData({ ...formData, isRecurring: e.target.checked })} className="mr-2 accent-trading-pink" />
-            <span className="text-trading-text">Recurring?</span>
-          </label>
-        </div>
-        <div className="flex gap-3 pt-4">
-          <button type="submit" className="bg-trading-pink hover:bg-trading-pink-dark text-white px-6 py-2 rounded-lg font-medium transition-colors">
-            {editingExpense ? 'Update' : 'Add'} Expense
-          </button>
-          {onCancel && (
-            <button type="button" onClick={onCancel} className="bg-trading-card hover:bg-trading-gray text-trading-text px-6 py-2 rounded-lg transition-colors">
-              Cancel
-            </button>
-          )}
         </div>
       </form>
     </div>
@@ -976,4 +947,12 @@ function IncomeForm({ onSubmit, onCancel, editingIncome }) {
             <span className="text-trading-text">Recurring?</span>
           </label>
         </div>
-        <div className="flex
+        <div className="flex gap-3 pt-4">
+          <button type="submit" className="bg-trading-green hover:bg-trading-green/80 text-white px-6 py-2 rounded-lg font-medium transition-colors">
+            {editingIncome ? 'Update' : 'Add'} Income
+          </button>
+          {onCancel && (
+            <button type="button" onClick={onCancel} className="bg-trading-card hover:bg-trading-gray text-trading-text px-6 py-2 rounded-lg transition-colors">
+              Cancel
+            </button>
+          )} 
